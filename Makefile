@@ -1,5 +1,10 @@
 APP := marchine
-VERSION := 1.21.0
+
+# Derive the development version from Git.
+# Release builds can override this:
+#   make build VERSION=1.22.0
+VERSION ?= $(shell git describe --tags --always --dirty 2>/dev/null | sed 's/^v//')
+
 LDFLAGS := -s -w -X main.version=$(VERSION)
 GO := GOTOOLCHAIN=auto go
 
@@ -27,14 +32,13 @@ test:
 	$(GO) test -mod=vendor ./...
 
 run:
-	$(GO) run -mod=vendor ./cmd/marchine
+	$(GO) run -mod=vendor -ldflags "$(LDFLAGS)" ./cmd/marchine
 
 demo:
-	$(GO) run -mod=vendor ./cmd/marchine --demo
+	$(GO) run -mod=vendor -ldflags "$(LDFLAGS)" ./cmd/marchine --demo
 
 install: build
 	install -Dm755 dist/$(APP) $(HOME)/.local/bin/$(APP)
-	@echo "Installed $(HOME)/.local/bin/$(APP)"
 
 uninstall:
 	rm -f $(HOME)/.local/bin/$(APP)
