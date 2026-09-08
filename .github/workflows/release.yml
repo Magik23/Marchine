@@ -1,0 +1,63 @@
+name: Release Marchine
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    name: Build and release Linux amd64
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Set up Go
+        uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+          cache: false
+
+      - name: Run tests
+        run: make test
+
+      - name: Determine version
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          echo "VERSION=$VERSION" >> "$GITHUB_ENV"
+
+      - name: Build Marchine
+        run: |
+          make clean
+          make build VERSION="$VERSION"
+          ./dist/marchine --version
+
+      - name: Package release
+        run: |
+          ASSET="marchine-${GITHUB_REF_NAME}-linux-amd64.tar.gz"
+
+          mkdir -p release
+          cp dist/marchine release/marchine
+
+          tar -czf "$ASSET" -C release marchine
+          sha256sum "$ASSET" > "$ASSET.sha256"
+
+          echo "ASSET=$ASSET" >> "$GITHUB_ENV"
+
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" \
+            "$ASSET" \
+            "$ASSET.sha256" \
+            --verify-tag \
+            --title "Marchine $GITHUB_REF_NAME" \
+            --generate-notes
