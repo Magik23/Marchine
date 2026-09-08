@@ -1,0 +1,52 @@
+# MARCHINE — Game Machinery.
+# Copy to: ~/.config/marchine/config.toml
+# Emulator executable + ROM path can be edited inside Marchine with S.
+# The automatic Arcade driver in V1.6 is still MAME.
+
+# violet | cyan | green | amber
+theme = "violet"
+startup_source = "arcade"
+
+[arcade]
+enabled = true
+mame_command = "mame"
+
+# Leave empty to auto-detect common MAME ROM locations and MAME's rompath.
+rom_paths = []
+
+# Optional CatVer/category metadata. Marchine does NOT scrape the internet.
+# If present, it enables coarse filters such as SHMUPS / FIGHTING / RUN&GUN.
+# Common examples:
+# catver_path = "~/.mame/catver.ini"
+# catver_path = "~/MAME-Curation/catver.ini"
+catver_path = ""
+
+# BIOS/device entries are never shown as games. Clones/preliminary drivers can
+# still be curated at index time. `hide_junk` is retained as the config key for
+# compatibility, but the UI calls it HIDE NON-ARCADE. It is non-destructive:
+# ON keeps casino/mahjong/etc. in the index while hiding them from the Arcade
+# playlist and CATEGORIES; OFF exposes the complete indexed runnable library.
+hide_clones = true
+hide_preliminary = true
+hide_junk = true
+
+# Flat launch targets. No scraping, ratings, artwork, publisher database, etc.
+# Display name is independent from the actual executable/command.
+
+# [[games]]
+# name = "OpenTyrian"
+# command = "opentyrian"
+# args = []
+
+# Steam example (Steam must already be installed/authenticated on the machine):
+# [[games]]
+# name = "Terminator 2D"
+# command = "steam"
+# args = ["-applaunch", "1718460"]
+
+# Arbitrary script/example:
+# [[games]]
+# name = "My Game"
+# command = "/home/me/Games/my-game/start.sh"
+# args = []
+# working_dir = "/home/me/Games/my-game"

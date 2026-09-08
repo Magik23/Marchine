@@ -1,0 +1,19 @@
+# Build output
+/bin/
+/dist/
+
+# Local Marchine configuration
+config.toml
+
+# Logs
+*.log
+
+# Environment / secrets
+.env
+.env.*
+!.env.example
+
+# Editor / OS junk
+*.swp
+*.swo
+.DS_Store

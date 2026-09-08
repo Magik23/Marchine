@@ -1,0 +1,22 @@
+# Prototype PKGBUILD template. Replace the checksum once a real tagged release exists.
+pkgname=marchine
+pkgver=1.6.0
+pkgrel=1
+pkgdesc='Game Machinery — restrained terminal-native game launcher, MAME-first'
+arch=('x86_64')
+url='https://github.com/Magik23/marchine'
+license=('MIT')
+makedepends=('go')
+source=("$pkgname-$pkgver.tar.gz::$url/archive/refs/tags/v$pkgver.tar.gz")
+sha256sums=('SKIP')
+
+build() {
+  cd "$srcdir/$pkgname-$pkgver"
+  CGO_ENABLED=0 go build -trimpath -ldflags "-s -w" -o marchine ./cmd/marchine
+}
+
+package() {
+  cd "$srcdir/$pkgname-$pkgver"
+  install -Dm755 marchine "$pkgdir/usr/bin/marchine"
+  install -Dm644 LICENSE "$pkgdir/usr/share/licenses/marchine/LICENSE"
+}
