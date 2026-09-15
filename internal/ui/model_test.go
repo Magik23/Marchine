@@ -163,7 +163,7 @@ func TestCategoryShortcutAppliesPlaylistFilter(t *testing.T) {
 	cfg := config.Default()
 	m := NewModel(cfg, "", false, true)
 	m.source = library.SourceArcade
-	m.width = 120
+	m.width = minTerminalWidth
 	m.height = 50
 
 	next, _ := m.Update(tea.KeyPressMsg(tea.Key{Code: 'c', Text: "c"}))
@@ -217,7 +217,7 @@ func TestTerminalMinimumGate(t *testing.T) {
 	m.width = minTerminalWidth - 1
 	m.height = minTerminalHeight
 	view := m.View().Content
-	if !strings.Contains(view, "Terminal too small.") || !strings.Contains(view, "120") || !strings.Contains(view, "48") {
+	if !strings.Contains(view, "Terminal too small.") || !strings.Contains(view, "124") || !strings.Contains(view, "48") {
 		t.Fatalf("small-terminal view missing resize message: %q", view)
 	}
 }

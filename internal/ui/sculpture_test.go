@@ -19,12 +19,12 @@ func TestFightstickAssetHasStableGeometry(t *testing.T) {
 
 func TestFightstickPreservesEntireCurrentAsset(t *testing.T) {
 	w, h := sculptureDimensions()
-	if w != 50 || h != 19 {
-		t.Fatalf("display sculpture dimensions=%dx%d want=50x19", w, h)
+	if w != 62 || h != 22 {
+		t.Fatalf("display sculpture dimensions=%dx%d want=62x22", w, h)
 	}
 	lines := fightstickLines()
-	if len(lines) != 19 {
-		t.Fatalf("display sculpture rows=%d want=19", len(lines))
+	if len(lines) != 22 {
+		t.Fatalf("display sculpture rows=%d want=22", len(lines))
 	}
 	first := ansiEscape.ReplaceAllString(lines[0], "")
 	last := ansiEscape.ReplaceAllString(lines[len(lines)-1], "")
