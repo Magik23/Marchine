@@ -25,12 +25,13 @@ command -v makepkg >/dev/null 2>&1 || {
     exit 1
   fi
 
+  rm -f marchine-*.pkg.tar.*
   makepkg --cleanbuild --force
 
   if command -v namcap >/dev/null 2>&1; then
     namcap PKGBUILD
     shopt -s nullglob
-    packages=(marchine-*.pkg.tar.*)
+    packages=(marchine-[0-9]*.pkg.tar.*)
     if (( ${#packages[@]} > 0 )); then
       namcap "${packages[@]}"
     fi

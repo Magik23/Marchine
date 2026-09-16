@@ -1,9 +1,10 @@
+# Maintainer: Pierre Dionne <hello@albenoir.com>
 # Production AUR template.
 # Generate packaging/PKGBUILD (and .SRCINFO when makepkg is available) with:
-#   ./packaging/finalize-aur.sh 1.22.0
+#   ./packaging/finalize-aur.sh 1.22.1
 #
-# @PKGVER@ and @SHA256@ are intentionally placeholders until the release tag
-# exists. Never submit this template itself to the AUR.
+# The version and checksum placeholders below are replaced by finalize-aur.sh
+# after the release tag exists. Never submit this template itself to the AUR.
 
 pkgname=marchine
 pkgver=@PKGVER@
@@ -12,8 +13,10 @@ pkgdesc='Game Machinery — restrained terminal-native game launcher, MAME-first
 arch=('x86_64')
 url='https://github.com/Magik23/Marchine'
 license=('MIT')
+depends=('hicolor-icon-theme')
 makedepends=('go')
 optdepends=('mame: automatic Arcade indexing and launching')
+options=('!debug')
 source=("$pkgname-$pkgver.tar.gz::$url/archive/refs/tags/v$pkgver.tar.gz")
 sha256sums=('@SHA256@')
 
