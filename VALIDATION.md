@@ -39,7 +39,8 @@ Before a release, the current CI also runs:
 govulncheck ./...
 staticcheck ./...
 shellcheck scripts/install.sh packaging/finalize-aur.sh packaging/verify-aur.sh
-desktop-file-validate packaging/marchine.desktop.in
+desktop-file-validate /tmp/marchine-foot.desktop
+desktop-file-validate packaging/marchine.desktop
 ```
 
 ## Functional smoke checks

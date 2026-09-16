@@ -53,6 +53,10 @@ package() {
   cd "$srcdir/Marchine-$pkgver"
 
   install -Dm755 marchine "$pkgdir/usr/bin/marchine"
+  install -Dm644 packaging/marchine.desktop "$pkgdir/usr/share/applications/marchine.desktop"
+  install -Dm644 assets/icons/marchine-128.png "$pkgdir/usr/share/icons/hicolor/128x128/apps/marchine.png"
+  install -Dm644 assets/icons/marchine-256.png "$pkgdir/usr/share/icons/hicolor/256x256/apps/marchine.png"
+  install -Dm644 assets/icons/marchine-512.png "$pkgdir/usr/share/icons/hicolor/512x512/apps/marchine.png"
   install -Dm644 LICENSE "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
   install -Dm644 README.md "$pkgdir/usr/share/doc/$pkgname/README.md"
   install -Dm644 config.example.toml "$pkgdir/usr/share/doc/$pkgname/config.example.toml"

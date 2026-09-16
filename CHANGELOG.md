@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.22.1
+- Added the official Marchine application icons in 128, 256, and 512 pixel sizes.
+- Added a generic Linux desktop entry with `Terminal=true` and `Icon=marchine`, without requiring Foot.
+- Updated AUR packaging to install the desktop entry and icons into the standard system application and hicolor icon paths.
+- Kept the Foot-specific launcher and Omarchy/Hyprland integration as optional local examples, and extended CI validation to cover both desktop entries.
+
 ## 1.22.0
 - Production-hardening pass for the pre-AUR release.
 - Fixed stale Credits tests so the complete Go test suite matches the current embedded artwork.

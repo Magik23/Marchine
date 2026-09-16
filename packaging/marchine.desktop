@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=Marchine
+Comment=Game Machinery
+TryExec=marchine
+Exec=marchine
+Icon=marchine
+Terminal=true
+Categories=Game;Emulator;
+Keywords=MAME;Arcade;Terminal;

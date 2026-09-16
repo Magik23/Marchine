@@ -143,7 +143,10 @@ From a source checkout, the upstream helper installer places Marchine in `~/.loc
 ./scripts/install.sh
 ```
 
-The desktop template is `packaging/marchine.desktop.in`.
+The Foot-specific local desktop template is `packaging/marchine.desktop.in`.
+
+The generic Linux/AUR desktop entry is `packaging/marchine.desktop`; it launches
+Marchine through the user's default terminal and uses the packaged `marchine` icon.
 
 An optional Omarchy/Hyprland floating-window example is provided at:
 
@@ -164,11 +167,13 @@ packaging/PKGBUILD.example
 After a real release tag exists, generate the final `PKGBUILD` and `.SRCINFO` on Arch with:
 
 ```bash
-./packaging/finalize-aur.sh 1.22.0
+./packaging/finalize-aur.sh 1.22.1
 ./packaging/verify-aur.sh
 ```
 
-Use the actual release version in place of the example above. The AUR package itself is terminal/compositor neutral; Foot and Omarchy integration are shipped only as examples.
+Use the actual release version in place of the example above.
+
+The AUR package installs the Marchine binary, a generic `Terminal=true` desktop entry, and the official 128, 256, and 512 pixel application icons. It does not depend on Foot or modify compositor configuration. The Foot launcher template and Omarchy/Hyprland integration remain optional examples.
 
 ## Release policy
 
