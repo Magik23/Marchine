@@ -347,48 +347,6 @@ func (m Model) renderSourceTabs(width int) string {
 	return line
 }
 
-func (m Model) renderFilters(width int) string {
-	filters := m.filters()
-
-	if len(filters) <= 1 {
-		return ""
-	}
-
-	t := m.theme
-
-	border := lipgloss.NewStyle().
-		Foreground(t.Border)
-
-	active := lipgloss.NewStyle().
-		Foreground(t.SelectText).
-		Background(t.Selection).
-		Bold(true).
-		Padding(0, 1)
-
-	inactive := lipgloss.NewStyle().
-		Foreground(t.Text).
-		Padding(0, 1)
-
-	var out []string
-
-	for _, f := range filters {
-		label := inactive.Render(f)
-
-		if f == m.activeFilter() {
-			label = active.Render(f)
-		}
-
-		out = append(
-			out,
-			border.Render("[")+
-				label+
-				border.Render("]"),
-		)
-	}
-
-	return strings.Join(out, " ")
-}
-
 func (m Model) renderCategories(width, height int) string {
 	t := m.theme
 
@@ -1913,16 +1871,4 @@ func pad(s string, width int) string {
 	}
 
 	return s + strings.Repeat(" ", width-n)
-}
-
-func clamp(v, lo, hi int) int {
-	if v < lo {
-		return lo
-	}
-
-	if v > hi {
-		return hi
-	}
-
-	return v
 }

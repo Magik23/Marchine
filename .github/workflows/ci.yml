@@ -58,7 +58,7 @@ jobs:
       - name: Install pinned Go analyzers
         run: |
           go install golang.org/x/vuln/cmd/govulncheck@v1.8.0
-          go install honnef.co/go/tools/cmd/staticcheck@v0.7.0
+          go install honnef.co/go/tools/cmd/staticcheck@v0.8.1
 
       - name: Run vulnerability analysis
         run: govulncheck ./...
