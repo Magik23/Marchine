@@ -12,41 +12,68 @@ jobs:
   release:
     name: Build and release Linux amd64
     runs-on: ubuntu-latest
+    env:
+      GOTOOLCHAIN: local
 
     steps:
       - name: Checkout source
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
+          persist-credentials: false
 
       - name: Set up Go
-        uses: actions/setup-go@v7
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
-          go-version-file: go.mod
+          go-version: "1.27.1"
           cache: false
 
-      - name: Run tests
-        run: make test
+      - name: Verify source
+        run: make check
+
+      - name: Install pinned analyzers
+        run: |
+          go install golang.org/x/vuln/cmd/govulncheck@v1.8.0
+          go install honnef.co/go/tools/cmd/staticcheck@v0.7.0
+
+      - name: Run security and static analysis
+        run: |
+          govulncheck ./...
+          staticcheck ./...
 
       - name: Determine version
         run: |
           VERSION="${GITHUB_REF_NAME#v}"
+          if [[ ! "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+([.-][0-9A-Za-z.-]+)?$ ]]; then
+            echo "Refusing non-release tag: $GITHUB_REF_NAME" >&2
+            exit 1
+          fi
           echo "VERSION=$VERSION" >> "$GITHUB_ENV"
 
       - name: Build Marchine
         run: |
           make clean
           make build VERSION="$VERSION"
-          ./dist/marchine --version
+          test "$(./dist/marchine --version)" = "marchine $VERSION"
 
       - name: Package release
         run: |
-          ASSET="marchine-${GITHUB_REF_NAME}-linux-amd64.tar.gz"
+          ROOT="marchine-${VERSION}-linux-amd64"
+          ASSET="${ROOT}.tar.gz"
 
-          mkdir -p release
-          cp dist/marchine release/marchine
+          mkdir -p "release/$ROOT/THIRD_PARTY_LICENSES"
+          install -m755 dist/marchine "release/$ROOT/marchine"
+          install -m644 LICENSE "release/$ROOT/LICENSE"
+          install -m644 README.md "release/$ROOT/README.md"
+          install -m644 config.example.toml "release/$ROOT/config.example.toml"
 
-          tar -czf "$ASSET" -C release marchine
+          while IFS= read -r license_file; do
+            rel="${license_file#vendor/}"
+            mkdir -p "release/$ROOT/THIRD_PARTY_LICENSES/$(dirname "$rel")"
+            cp "$license_file" "release/$ROOT/THIRD_PARTY_LICENSES/$rel"
+          done < <(find vendor -type f \( -iname 'LICENSE*' -o -iname 'COPYING*' -o -iname 'NOTICE*' \) -print | sort)
+
+          tar -czf "$ASSET" -C release "$ROOT"
           sha256sum "$ASSET" > "$ASSET.sha256"
 
           echo "ASSET=$ASSET" >> "$GITHUB_ENV"

@@ -55,7 +55,9 @@ func main() {
 	}
 
 	if *doctor {
-		runDoctor(cfg, *rescan, path)
+		if err := runDoctor(cfg, *rescan, path); err != nil {
+			fatal(err)
+		}
 		return
 	}
 
@@ -75,13 +77,45 @@ func fatal(err error) {
 func ensureStarterConfig(path string) error {
 	if _, err := os.Stat(path); err == nil {
 		return nil
+	} else if err != nil && !os.IsNotExist(err) {
+		return err
 	}
 
 	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
 		return err
 	}
 
-	return os.WriteFile(path, []byte(starterConfig), 0o644)
+	f, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o644)
+	if os.IsExist(err) {
+		// Another Marchine process created the starter config between Stat and
+		// OpenFile. Preserve that file rather than overwriting it.
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+
+	removeOnError := true
+	defer func() {
+		if removeOnError {
+			_ = os.Remove(path)
+		}
+	}()
+
+	if _, err := f.WriteString(starterConfig); err != nil {
+		_ = f.Close()
+		return err
+	}
+	if err := f.Sync(); err != nil {
+		_ = f.Close()
+		return err
+	}
+	if err := f.Close(); err != nil {
+		return err
+	}
+
+	removeOnError = false
+	return nil
 }
 
 const starterConfig = `# MARCHINE — Game Machinery.
@@ -111,20 +145,19 @@ hide_junk = true
 # args = ["-applaunch", "1718460"]
 `
 
-func runDoctor(cfg config.Config, force bool, path string) {
+func runDoctor(cfg config.Config, force bool, path string) error {
 	fmt.Println("MARCHINE // DOCTOR")
 	fmt.Println("config:", path)
 	fmt.Printf("custom games: %d\n", len(cfg.Games))
 
 	if !cfg.Arcade.Enabled {
 		fmt.Println("arcade: disabled")
-		return
+		return nil
 	}
 
 	res, err := mame.Load(cfg.Arcade, force)
 	if err != nil {
-		fmt.Println("arcade error:", err)
-		return
+		return fmt.Errorf("arcade: %w", err)
 	}
 
 	fmt.Println("mame:", res.MAMEVersion)
@@ -148,4 +181,10 @@ func runDoctor(cfg config.Config, force bool, path string) {
 	if res.Warning != "" {
 		fmt.Println("warning:", res.Warning)
 	}
+	if res.Diagnostic != "" {
+		fmt.Println("diagnostic:", res.Diagnostic)
+		return fmt.Errorf("arcade diagnostic failed: %s", res.Diagnostic)
+	}
+
+	return nil
 }

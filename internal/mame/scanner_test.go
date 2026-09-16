@@ -1,13 +1,17 @@
 package mame
 
 import (
+	"encoding/json"
 	"os"
 	"path/filepath"
+	"reflect"
 	"runtime"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/magik23/marchine/internal/config"
+	"github.com/magik23/marchine/internal/library"
 )
 
 func TestLoadIndexesAndCuratesFakeMAME(t *testing.T) {
@@ -65,7 +69,7 @@ badgame=0.99
 
 	xml := `<?xml version="1.0"?>
 <mame>
-  <machine name="ddonpach" runnable="yes"><description>DoDonPachi</description><year>1997</year><manufacturer>Cave</manufacturer><driver status="good"/></machine>
+  <machine name="ddonpach" runnable="yes"><description>DoDonPachi</description><year>1997</year><manufacturer>Cave</manufacturer><driver status="good"/><display rotate="270"/></machine>
   <machine name="sf2ce" runnable="yes"><description>Street Fighter II': Champion Edition</description><year>1992</year><manufacturer>Capcom</manufacturer><driver status="good"/></machine>
   <machine name="sf2ceua" cloneof="sf2ce" runnable="yes"><description>Street Fighter II': Champion Edition (USA)</description><year>1992</year><manufacturer>Capcom</manufacturer><driver status="good"/></machine>
   <machine name="mahjong" runnable="yes"><description>Super Mahjong</description><year>1990</year><manufacturer>Example</manufacturer><driver status="good"/></machine>
@@ -118,11 +122,17 @@ badgame=0.99
 	if res.Games[0].Name != "DoDonPachi" ||
 		res.Games[0].Year != "1997" ||
 		res.Games[0].Manufacturer != "Cave" ||
-		res.Games[0].Category != "SHMUPS" {
+		res.Games[0].Category != "SHMUPS" ||
+		!res.Games[0].Vertical {
 		t.Fatalf(
 			"unexpected first game: %#v",
 			res.Games[0],
 		)
+	}
+
+	wantLaunchArgs := []string{"ddonpach", "-rompath", filepath.Clean(roms), "-autorol"}
+	if !reflect.DeepEqual(res.Games[0].Args, wantLaunchArgs) {
+		t.Fatalf("explicit ROM path/orientation missing from launch args: got %#v want %#v", res.Games[0].Args, wantLaunchArgs)
 	}
 
 	if res.Games[1].Category != "FIGHTING" {
@@ -509,4 +519,174 @@ func shellQuote(s string) string {
 			"'\\''",
 		) +
 		"'"
+}
+
+func TestLaunchArgsPreserveMultipleExplicitROMPaths(t *testing.T) {
+	paths := []string{"/mnt/arcade-a", "/mnt/arcade-b", "/mnt/arcade-a"}
+	got := LaunchArgs("1942", paths, true)
+	want := []string{"1942", "-rompath", "/mnt/arcade-a;/mnt/arcade-b", "-autorol"}
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("LaunchArgs=%#v want=%#v", got, want)
+	}
+}
+
+func TestCurrentCacheRehydratesLaunchIdentityFromConfig(t *testing.T) {
+	d := t.TempDir()
+	t.Setenv("XDG_CACHE_HOME", filepath.Join(d, "cache"))
+
+	path, err := cachePath()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	cached := Result{
+		Games: []library.Game{{
+			ID:       "mame:1942",
+			Name:     "1942",
+			Source:   library.SourceArcade,
+			ROM:      "1942",
+			Vertical: true,
+			Command:  "/old/mame",
+			Args:     []string{"1942"},
+		}},
+		MAMEVersion: "0.289",
+		ROMPaths:    []string{"/old/roms"},
+	}
+	if err := writeCache(path, cached); err != nil {
+		t.Fatal(err)
+	}
+
+	cfg := config.ArcadeConfig{
+		Enabled:     true,
+		MAMECommand: "/new/mame",
+		ROMPaths:    []string{"/new/roms", "/more/roms"},
+	}
+	res, err := Load(cfg, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !res.FromCache || len(res.Games) != 1 {
+		t.Fatalf("unexpected cache result: %#v", res)
+	}
+	if res.Games[0].Command != "/new/mame" {
+		t.Fatalf("cached command=%q want current config", res.Games[0].Command)
+	}
+	wantArgs := []string{"1942", "-rompath", "/new/roms;/more/roms", "-autorol"}
+	if !reflect.DeepEqual(res.Games[0].Args, wantArgs) {
+		t.Fatalf("cached launch args=%#v want=%#v", res.Games[0].Args, wantArgs)
+	}
+}
+
+func TestLegacyCacheIsExplicitDegradedFallback(t *testing.T) {
+	d := t.TempDir()
+	t.Setenv("XDG_CACHE_HOME", filepath.Join(d, "cache"))
+
+	path, err := cachePath()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		t.Fatal(err)
+	}
+
+	legacy := cacheFile{
+		// Intentionally no Schema: this represents caches from before v4.
+		SavedAt: time.Now(),
+		Result: cachedResult{Games: []library.Game{{
+			ID:      "mame:1942",
+			Name:    "1942",
+			Source:  library.SourceArcade,
+			ROM:     "1942",
+			Command: "/old/mame",
+		}}},
+	}
+	b, err := json.Marshal(legacy)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(path, b, 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	cfg := config.ArcadeConfig{Enabled: true, MAMECommand: filepath.Join(d, "missing-mame")}
+	res, err := Load(cfg, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !res.FromCache || len(res.Games) != 1 {
+		t.Fatalf("legacy fallback lost library: %#v", res)
+	}
+	if res.Warning != "LEGACY CACHE — REFRESH REQUIRED" {
+		t.Fatalf("legacy warning=%q", res.Warning)
+	}
+	if res.Diagnostic == "" {
+		t.Fatal("legacy degraded fallback should retain the live-source diagnostic")
+	}
+}
+
+func TestForcedScanFailureKeepsCurrentCache(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("shell-script fixture")
+	}
+
+	d := t.TempDir()
+	roms := filepath.Join(d, "roms")
+	if err := os.MkdirAll(roms, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(roms, "1942.zip"), nil, 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	fake := filepath.Join(d, "mame")
+	goodXML := `<?xml version="1.0"?><mame><machine name="1942" runnable="yes"><description>1942</description><year>1984</year><manufacturer>Capcom</manufacturer><driver status="good"/><display rotate="90"/></machine></mame>`
+	writeFakeMAME(t, fake, roms, goodXML)
+	t.Setenv("XDG_CACHE_HOME", filepath.Join(d, "cache"))
+
+	cfg := config.ArcadeConfig{Enabled: true, MAMECommand: fake, ROMPaths: []string{roms}}
+	first, err := Load(cfg, true)
+	if err != nil || len(first.Games) != 1 {
+		t.Fatalf("initial scan failed: res=%#v err=%v", first, err)
+	}
+
+	broken := "#!/usr/bin/env bash\ncase \"${1:-}\" in\n-version) echo fake;;\n-showconfig) echo 'rompath " + shellQuote(roms) + "';;\n-listxml) printf '<mame><machine'; exit 1;;\n*) exit 2;;\nesac\n"
+	if err := os.WriteFile(fake, []byte(broken), 0o755); err != nil {
+		t.Fatal(err)
+	}
+
+	res, err := Load(cfg, true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !res.FromCache || len(res.Games) != 1 {
+		t.Fatalf("failed refresh should preserve cache: %#v", res)
+	}
+	if res.Warning != "REFRESH FAILED — SAVED LIBRARY KEPT" {
+		t.Fatalf("warning=%q", res.Warning)
+	}
+	if res.Diagnostic == "" {
+		t.Fatal("refresh fallback should retain diagnostic detail")
+	}
+}
+
+func TestCacheFileCarriesCurrentSchema(t *testing.T) {
+	d := t.TempDir()
+	path := filepath.Join(d, "arcade.json")
+	if err := writeCache(path, Result{MAMEVersion: "0.289"}); err != nil {
+		t.Fatal(err)
+	}
+	c, err := readCache(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if c.Schema != cacheSchema {
+		t.Fatalf("schema=%q want=%q", c.Schema, cacheSchema)
+	}
+	matches, err := filepath.Glob(filepath.Join(d, ".arcade-*.tmp"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(matches) != 0 {
+		t.Fatalf("atomic cache write left temp files: %#v", matches)
+	}
 }

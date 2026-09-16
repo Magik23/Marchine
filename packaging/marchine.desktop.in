@@ -2,7 +2,8 @@
 Type=Application
 Name=Marchine
 Comment=Game Machinery
-Exec=foot --app-id=marchine --window-size-chars=124x48 --override=colors-dark.alpha=0.95 -e @MARCHINE_BIN@
+TryExec=foot
+Exec=foot --app-id=marchine --override=colors-dark.alpha=0.98 -e "@MARCHINE_BIN@"
 Terminal=false
 Categories=Game;Emulator;
 Keywords=MAME;Arcade;Terminal;

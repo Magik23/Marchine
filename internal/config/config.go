@@ -11,11 +11,10 @@ import (
 )
 
 type Config struct {
-	Theme            string       `toml:"theme"`
-	StartupSource    string       `toml:"startup_source"`
-	AnimateSculpture bool         `toml:"animate_sculpture"`
-	Arcade           ArcadeConfig `toml:"arcade"`
-	Games            []GameConfig `toml:"games"`
+	Theme         string       `toml:"theme"`
+	StartupSource string       `toml:"startup_source"`
+	Arcade        ArcadeConfig `toml:"arcade"`
+	Games         []GameConfig `toml:"games"`
 }
 
 type ArcadeConfig struct {
@@ -37,9 +36,8 @@ type GameConfig struct {
 
 func Default() Config {
 	return Config{
-		Theme:            "violet",
-		StartupSource:    "arcade",
-		AnimateSculpture: false,
+		Theme:         "violet",
+		StartupSource: "arcade",
 		Arcade: ArcadeConfig{
 			Enabled:         true,
 			MAMECommand:     "mame",
@@ -141,16 +139,51 @@ func Save(path string, cfg Config) error {
 	if err != nil {
 		return fmt.Errorf("encode config: %w", err)
 	}
-	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+
+	dir := filepath.Dir(path)
+	if err := os.MkdirAll(dir, 0o755); err != nil {
 		return err
 	}
-	tmp := path + ".tmp"
-	if err := os.WriteFile(tmp, b, 0o644); err != nil {
+
+	tmp, err := os.CreateTemp(dir, ".config-*.tmp")
+	if err != nil {
 		return err
 	}
-	if err := os.Rename(tmp, path); err != nil {
-		_ = os.Remove(tmp)
+	tmpName := tmp.Name()
+	committed := false
+	defer func() {
+		if !committed {
+			_ = os.Remove(tmpName)
+		}
+	}()
+
+	if err := tmp.Chmod(0o644); err != nil {
+		_ = tmp.Close()
 		return err
 	}
+	if _, err := tmp.Write(b); err != nil {
+		_ = tmp.Close()
+		return err
+	}
+	if err := tmp.Sync(); err != nil {
+		_ = tmp.Close()
+		return err
+	}
+	if err := tmp.Close(); err != nil {
+		return err
+	}
+	if err := os.Rename(tmpName, path); err != nil {
+		return err
+	}
+	committed = true
+
+	// Best-effort directory sync makes the rename durable on filesystems that
+	// support it. The successfully renamed config remains valid if this sync is
+	// unsupported by the filesystem.
+	if d, openErr := os.Open(dir); openErr == nil {
+		_ = d.Sync()
+		_ = d.Close()
+	}
+
 	return nil
 }

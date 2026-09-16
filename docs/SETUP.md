@@ -1,6 +1,6 @@
-# Marchine Setup — V1.20
+# Marchine Setup
 
-Open with:
+Open Setup with:
 
 ```text
 S
@@ -10,10 +10,10 @@ Fields:
 
 ```text
 EMULATOR EXECUTABLE
-ROM PATH
+PRIMARY ROM PATH
 ```
 
-The current automatic Arcade driver is MAME. The neutral field label is intentional so future drivers can reuse the same launcher model without redesigning Setup.
+The current automatic Arcade driver is MAME. The neutral executable label is intentional so future command-line emulator drivers can reuse Marchine's launch model.
 
 Controls:
 
@@ -22,15 +22,23 @@ Controls:
 Enter          Edit/apply field
 Ctrl+U         Clear current edit buffer
 Ctrl+S         Save
-R              Save + Refresh
-Esc            Return
-I              Info
+R              Save + Refresh Arcade Library
+T              Cycle theme
+Esc / S        Return
 ```
 
-Configuration is saved atomically to:
+Configuration is saved atomically to the platform user-config location, normally:
 
 ```text
 ~/.config/marchine/config.toml
 ```
 
-An empty ROM path means: use MAME's configured `rompath` / auto-detection.
+## ROM-path behavior
+
+- Empty `rom_paths` means MAME rompath / Marchine auto-detection.
+- TOML supports multiple explicit ROM paths.
+- The Setup UI edits the first **primary** path and preserves additional configured paths.
+- Clearing the primary field intentionally clears the explicit list and restores auto-detection.
+- Explicit Marchine ROM paths are also passed to MAME when a game launches.
+
+Saving Setup immediately rehydrates in-memory Arcade launch arguments, even if you do not refresh metadata. `R` requests a metadata refresh after saving; if a refresh is already running Marchine does not start a second one.

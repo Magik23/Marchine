@@ -1,15 +1,14 @@
 # Sculpture
 
-Marchine v1.18 treats `internal/ui/fightstick.ans` as a fixed terminal asset.
+Marchine treats `internal/ui/fightstick.ans` as a fixed terminal asset.
 
-- Embedded source geometry: **44 columns × 24 rows**.
-- Display geometry trims the first **6** generated dot-only rows, leaving **44 columns × 18 rows** before any height-limited crop.
-- The source `.ans` file itself remains untouched.
-- The renderer derives width from the embedded file; the dimensions are not hard-coded into the layout.
-- The detail panel follows the asset width, keeping only a small deliberate margin around it.
+- Current embedded plain geometry: **62 columns × 22 rows**.
 - The `.ans` file is embedded into the Go binary at build time.
-- Marchine does **not** resample, dither, reindex, scale, or replace characters.
-- When height is limited, Marchine may use a stable centered vertical crop of the remaining rows.
-- When the terminal becomes genuinely too narrow or too short, the sculpture is hidden instead of being deformed.
+- Source ANSI color escapes are stripped and the glyphs are recolored with the active Marchine theme.
+- Marchine does **not** resample, dither, scale, morph, animate, or replace characters at runtime.
+- The renderer derives dimensions from the embedded asset rather than hard-coding a separate panel geometry.
+- The detail panel keeps a small deliberate horizontal margin around the native asset.
+- When height is limited, Marchine can use a stable centered vertical crop.
+- When width is insufficient, the sculpture is hidden rather than deformed.
 
-The asset remains the source of truth. Replacing `fightstick.ans` with another fixed-width ANSI asset automatically changes the panel width on the next build; if a future asset has different top breathing room, adjust `sculptureTopTrimRows` deliberately rather than resampling the art.
+The asset is the geometry source of truth. If `fightstick.ans` is deliberately replaced in the future, update the corresponding dimension tests and visually verify the detail-panel balance.

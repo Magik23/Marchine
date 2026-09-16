@@ -26,22 +26,22 @@ func ThemeByName(name string) Theme {
 	switch strings.ToLower(name) {
 	case "cyan":
 		return Theme{
-			Name: "cyan", Accent: lipgloss.Color("#2DE2E6"), Accent2: lipgloss.Color("#6AE4FF"),
-			Text: lipgloss.Color("#D7F8FF"), Muted: lipgloss.Color("#6E9AA6"), Border: lipgloss.Color("#188FA3"),
+			Name: "cyan", Accent: lipgloss.Color("#2DE2E6"), Accent2: lipgloss.Color("#708BFF"),
+			Text: lipgloss.Color("#D7F8FF"), Muted: lipgloss.Color("#7088A8"), Border: lipgloss.Color("#4D63C8"),
 			Success: lipgloss.Color("#62F5A8"), Warning: lipgloss.Color("#FFD166"), Selection: lipgloss.Color("#2DE2E6"),
 			SelectText: lipgloss.Color("#061014"),
 		}
 	case "green":
 		return Theme{
-			Name: "green", Accent: lipgloss.Color("#5CFF8D"), Accent2: lipgloss.Color("#2FD675"),
-			Text: lipgloss.Color("#D8FFE4"), Muted: lipgloss.Color("#70A77E"), Border: lipgloss.Color("#2B8A4B"),
+			Name: "green", Accent: lipgloss.Color("#5CFF8D"), Accent2: lipgloss.Color("#45D9FF"),
+			Text: lipgloss.Color("#D8FFE4"), Muted: lipgloss.Color("#659EA3"), Border: lipgloss.Color("#258FA8"),
 			Success: lipgloss.Color("#8BFFB2"), Warning: lipgloss.Color("#FFD166"), Selection: lipgloss.Color("#5CFF8D"),
 			SelectText: lipgloss.Color("#06100A"),
 		}
 	case "amber":
 		return Theme{
-			Name: "amber", Accent: lipgloss.Color("#FFB83E"), Accent2: lipgloss.Color("#E8922E"),
-			Text: lipgloss.Color("#FFE7B5"), Muted: lipgloss.Color("#A88958"), Border: lipgloss.Color("#9B661D"),
+			Name: "amber", Accent: lipgloss.Color("#FFB83E"), Accent2: lipgloss.Color("#FF6F91"),
+			Text: lipgloss.Color("#FFE7B5"), Muted: lipgloss.Color("#B27A83"), Border: lipgloss.Color("#B9576B"),
 			Success: lipgloss.Color("#B7F774"), Warning: lipgloss.Color("#FF8A5B"), Selection: lipgloss.Color("#FFB83E"),
 			SelectText: lipgloss.Color("#140D03"),
 		}

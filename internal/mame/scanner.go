@@ -2,6 +2,7 @@ package mame
 
 import (
 	"bufio"
+	"context"
 	"encoding/json"
 	"encoding/xml"
 	"errors"
@@ -18,6 +19,16 @@ import (
 	"github.com/magik23/marchine/internal/library"
 )
 
+const cacheSchema = "marchine-index-v4"
+
+var errCacheSchema = errors.New("unsupported Marchine cache schema")
+
+const (
+	showConfigTimeout = 10 * time.Second
+	versionTimeout    = 5 * time.Second
+	listXMLTimeout    = 3 * time.Minute
+)
+
 type Result struct {
 	Games       []library.Game
 	MAMEVersion string
@@ -25,9 +36,11 @@ type Result struct {
 	CatVerUsed  string
 	FromCache   bool
 	Warning     string
+	Diagnostic  string
 }
 
 type cacheFile struct {
+	Schema  string       `json:"schema"`
 	SavedAt time.Time    `json:"saved_at"`
 	Result  cachedResult `json:"result"`
 }
@@ -52,6 +65,9 @@ type machineXML struct {
 	Driver       struct {
 		Status string `xml:"status,attr"`
 	} `xml:"driver"`
+	Displays []struct {
+		Rotate string `xml:"rotate,attr"`
+	} `xml:"display"`
 }
 
 func Load(cfg config.ArcadeConfig, force bool) (Result, error) {
@@ -59,50 +75,57 @@ func Load(cfg config.ArcadeConfig, force bool) (Result, error) {
 		return Result{}, nil
 	}
 
-	// Normal startup is cache-first by design. If a saved Arcade library exists,
-	// load it immediately without touching MAME, ROM paths, or CatVer.
-	//
-	// A fresh scan only happens when:
-	//   - no saved cache exists yet, or
-	//   - force is true (R in Marchine / --rescan on the CLI).
+	// Normal startup is cache-first by design. A cache written by the current
+	// schema is used immediately without touching MAME, ROM paths, or CatVer.
+	// A legacy cache is deliberately NOT treated as current: Marchine attempts a
+	// fresh scan once, and only exposes that legacy data as an explicit degraded
+	// fallback when the live source is unavailable.
 	cache, _ := cachePath()
-	var saved cacheFile
-	hasSaved := false
+	var saved *cacheFile
+	var legacy *cacheFile
 
 	if cache != "" {
 		if c, err := readCache(cache); err == nil {
-			saved = c
-			hasSaved = true
-
+			saved = &c
 			if !force {
-				return resultFromCache(c, ""), nil
+				return resultFromCache(c, cfg, "", ""), nil
 			}
+		} else if errors.Is(err, errCacheSchema) && len(c.Result.Games) > 0 {
+			legacy = &c
 		}
 	}
 
-	mamePath, err := exec.LookPath(cfg.MAMECommand)
+	mameCommand := strings.TrimSpace(cfg.MAMECommand)
+	if mameCommand == "" {
+		mameCommand = "mame"
+	}
+
+	mamePath, err := exec.LookPath(mameCommand)
 	if err != nil {
-		if hasSaved {
-			return resultFromCache(saved, "MAME NOT FOUND — SAVED LIBRARY KEPT"), nil
+		if res, ok := cacheFallback(saved, legacy, cfg, "MAME NOT FOUND — SAVED LIBRARY KEPT", err); ok {
+			return res, nil
 		}
-		return Result{Warning: "MAME NOT FOUND"}, nil
+		return Result{Warning: "MAME NOT FOUND", Diagnostic: err.Error()}, nil
 	}
 
-	romPaths := cfg.ROMPaths
+	romPaths := append([]string(nil), cfg.ROMPaths...)
 	if len(romPaths) == 0 {
 		romPaths = detectROMPaths(mamePath)
 	}
 
 	roms, err := discoverROMs(romPaths)
 	if err != nil {
+		if res, ok := cacheFallback(saved, legacy, cfg, "REFRESH FAILED — SAVED LIBRARY KEPT", err); ok {
+			return res, nil
+		}
 		return Result{}, err
 	}
 
 	// Do not destroy a good saved library because an external drive is
 	// temporarily missing or a configured ROM path is unavailable.
 	if len(roms) == 0 {
-		if hasSaved {
-			return resultFromCache(saved, "NO ROMS FOUND — SAVED LIBRARY KEPT"), nil
+		if res, ok := cacheFallback(saved, legacy, cfg, "NO ROMS FOUND — SAVED LIBRARY KEPT", errors.New("no ROM archives found")); ok {
+			return res, nil
 		}
 
 		return Result{
@@ -128,6 +151,9 @@ func Load(cfg config.ArcadeConfig, force bool) (Result, error) {
 
 	games, err := parseInstalledMachines(mamePath, roms, categories, cfg)
 	if err != nil {
+		if res, ok := cacheFallback(saved, legacy, cfg, "REFRESH FAILED — SAVED LIBRARY KEPT", err); ok {
+			return res, nil
+		}
 		return Result{}, err
 	}
 
@@ -144,27 +170,120 @@ func Load(cfg config.ArcadeConfig, force bool) (Result, error) {
 	}
 
 	if cache != "" {
-		_ = writeCache(cache, res)
+		if err := writeCache(cache, res); err != nil {
+			res.Warning = joinWarnings(res.Warning, "CACHE SAVE FAILED")
+			res.Diagnostic = "cache save: " + err.Error()
+		}
 	}
 
 	return res, nil
 }
 
-func resultFromCache(c cacheFile, warningOverride string) Result {
+func cacheFallback(saved, legacy *cacheFile, cfg config.ArcadeConfig, warning string, cause error) (Result, bool) {
+	diagnostic := ""
+	if cause != nil {
+		diagnostic = cause.Error()
+	}
+
+	if saved != nil {
+		return resultFromCache(*saved, cfg, warning, diagnostic), true
+	}
+
+	if legacy != nil {
+		return resultFromCache(*legacy, cfg, "LEGACY CACHE — REFRESH REQUIRED", diagnostic), true
+	}
+
+	return Result{}, false
+}
+
+func resultFromCache(c cacheFile, cfg config.ArcadeConfig, warningOverride, diagnostic string) Result {
 	r := c.Result
 	warning := r.Warning
 	if warningOverride != "" {
 		warning = warningOverride
 	}
 
+	games := cloneGames(r.Games)
+	hydrateLaunchConfig(games, cfg)
+
 	return Result{
-		Games:       r.Games,
+		Games:       games,
 		MAMEVersion: r.MAMEVersion,
-		ROMPaths:    r.ROMPaths,
+		ROMPaths:    append([]string(nil), r.ROMPaths...),
 		CatVerUsed:  r.CatVerUsed,
 		FromCache:   true,
 		Warning:     warning,
+		Diagnostic:  diagnostic,
 	}
+}
+
+func cloneGames(in []library.Game) []library.Game {
+	out := make([]library.Game, len(in))
+	for i := range in {
+		out[i] = in[i]
+		out[i].Args = append([]string(nil), in[i].Args...)
+	}
+	return out
+}
+
+// ApplyLaunchConfig updates cached/in-memory Arcade entries with the current
+// emulator executable and explicit ROM-path policy without requiring a rescan.
+// Durable metadata remains cached; launch identity always follows current config.
+func ApplyLaunchConfig(games []library.Game, cfg config.ArcadeConfig) {
+	hydrateLaunchConfig(games, cfg)
+}
+
+func hydrateLaunchConfig(games []library.Game, cfg config.ArcadeConfig) {
+	command := strings.TrimSpace(cfg.MAMECommand)
+	if command == "" {
+		command = "mame"
+	}
+
+	for i := range games {
+		if games[i].Source != library.SourceArcade || strings.TrimSpace(games[i].ROM) == "" {
+			continue
+		}
+		games[i].Command = command
+		games[i].Args = LaunchArgs(games[i].ROM, cfg.ROMPaths, games[i].Vertical)
+	}
+}
+
+// LaunchArgs returns MAME arguments for one indexed ROM. Explicit Marchine ROM
+// paths are passed to MAME so a path that indexes successfully also launches
+// successfully even when it is absent from mame.ini. Auto-rotation is based on
+// MAME's own display orientation metadata, not category-name guesses.
+func LaunchArgs(rom string, romPaths []string, vertical bool) []string {
+	args := []string{rom}
+
+	if paths := normalizeROMPathList(romPaths); len(paths) > 0 {
+		args = append(args, "-rompath", strings.Join(paths, ";"))
+	}
+
+	if vertical {
+		args = append(args, "-autorol")
+	}
+
+	return args
+}
+
+func normalizeROMPathList(paths []string) []string {
+	seen := map[string]bool{}
+	out := make([]string, 0, len(paths))
+
+	for _, p := range paths {
+		p = config.ExpandPath(strings.TrimSpace(strings.Trim(p, `"`)))
+		if p == "" {
+			continue
+		}
+		p = filepath.Clean(p)
+		if seen[p] {
+			continue
+		}
+		seen[p] = true
+		out = append(out, p)
+	}
+
+	return out
 }
 
 func detectROMPaths(mamePath string) []string {
@@ -194,7 +313,10 @@ func detectROMPaths(mamePath string) []string {
 		}
 	}
 
-	cmd := exec.Command(mamePath, "-showconfig")
+	ctx, cancel := context.WithTimeout(context.Background(), showConfigTimeout)
+	defer cancel()
+
+	cmd := exec.CommandContext(ctx, mamePath, "-showconfig")
 	if b, err := cmd.Output(); err == nil {
 		s := bufio.NewScanner(strings.NewReader(string(b)))
 
@@ -270,7 +392,10 @@ func parseInstalledMachines(
 		return nil, nil
 	}
 
-	cmd := exec.Command(mamePath, "-listxml")
+	ctx, cancel := context.WithTimeout(context.Background(), listXMLTimeout)
+	defer cancel()
+
+	cmd := exec.CommandContext(ctx, mamePath, "-listxml")
 
 	stdout, err := cmd.StdoutPipe()
 	if err != nil {
@@ -295,7 +420,10 @@ func parseInstalledMachines(
 		}
 
 		if err != nil {
-			_ = cmd.Process.Kill()
+			terminateProcess(cmd)
+			if ctx.Err() != nil {
+				return nil, fmt.Errorf("mame -listxml timed out after %s: %w", listXMLTimeout, ctx.Err())
+			}
 			return nil, fmt.Errorf("parse mame -listxml: %w", err)
 		}
 
@@ -306,7 +434,10 @@ func parseInstalledMachines(
 
 		var mx machineXML
 		if err := dec.DecodeElement(&mx, &se); err != nil {
-			_ = cmd.Process.Kill()
+			terminateProcess(cmd)
+			if ctx.Err() != nil {
+				return nil, fmt.Errorf("mame -listxml timed out after %s: %w", listXMLTimeout, ctx.Err())
+			}
 			return nil, err
 		}
 
@@ -335,13 +466,13 @@ func parseInstalledMachines(
 
 		cat := categories[name]
 
-		// Keep the complete installed runnable library. "hide_junk" is now a
+		// Keep the complete installed runnable library. "hide_junk" is a
 		// presentation preference handled by the UI's ARCADE ONLY filter rather
-		// than a destructive indexing rule. This keeps casino/mahjong/etc.
-		// available as explicit categories when the user wants to inspect them.
+		// than a destructive indexing rule.
 		rawCategory := strings.TrimSpace(cat)
 		browseCategory := BrowseCategory(rawCategory, mx.Description)
 		nonArcade := IsNonArcade(rawCategory, mx.Description)
+		vertical := isVerticalMachine(mx)
 
 		games = append(games, library.Game{
 			ID:           "mame:" + name,
@@ -352,14 +483,18 @@ func parseInstalledMachines(
 			Category:     browseCategory,
 			RawCategory:  rawCategory,
 			NonArcade:    nonArcade,
+			Vertical:     vertical,
 			ROM:          name,
 			Command:      mamePath,
-			Args:         []string{name},
+			Args:         LaunchArgs(name, cfg.ROMPaths, vertical),
 			CloneOf:      mx.CloneOf,
 		})
 	}
 
 	if err := cmd.Wait(); err != nil {
+		if ctx.Err() != nil {
+			return nil, fmt.Errorf("mame -listxml timed out after %s: %w", listXMLTimeout, ctx.Err())
+		}
 		return nil, fmt.Errorf(
 			"mame -listxml failed: %w: %s",
 			err,
@@ -373,6 +508,24 @@ func parseInstalledMachines(
 	})
 
 	return games, nil
+}
+
+func terminateProcess(cmd *exec.Cmd) {
+	if cmd == nil || cmd.Process == nil {
+		return
+	}
+	_ = cmd.Process.Kill()
+	_ = cmd.Wait()
+}
+
+func isVerticalMachine(mx machineXML) bool {
+	for _, display := range mx.Displays {
+		switch strings.TrimSpace(display.Rotate) {
+		case "90", "270":
+			return true
+		}
+	}
+	return false
 }
 
 func truthy(v string) bool {
@@ -403,7 +556,10 @@ func cleanManufacturer(s string) string {
 }
 
 func readVersion(mamePath string) string {
-	cmd := exec.Command(mamePath, "-version")
+	ctx, cancel := context.WithTimeout(context.Background(), versionTimeout)
+	defer cancel()
+
+	cmd := exec.CommandContext(ctx, mamePath, "-version")
 
 	b, err := cmd.Output()
 	if err != nil {
@@ -468,17 +624,26 @@ func readCache(path string) (cacheFile, error) {
 		return c, err
 	}
 
-	err = json.Unmarshal(b, &c)
-	return c, err
+	if err := json.Unmarshal(b, &c); err != nil {
+		return c, err
+	}
+
+	if c.Schema != cacheSchema {
+		return c, fmt.Errorf("%w: got %q, want %q", errCacheSchema, c.Schema, cacheSchema)
+	}
+
+	return c, nil
 }
 
-func writeCache(path string, r Result) error {
-	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+func writeCache(path string, r Result) (err error) {
+	dir := filepath.Dir(path)
+	if err := os.MkdirAll(dir, 0o755); err != nil {
 		return err
 	}
 
 	c := cacheFile{
-		SavedAt: time.Now(),
+		Schema:  cacheSchema,
+		SavedAt: time.Now().UTC(),
 		Result: cachedResult{
 			Games:       r.Games,
 			MAMEVersion: r.MAMEVersion,
@@ -492,6 +657,55 @@ func writeCache(path string, r Result) error {
 	if err != nil {
 		return err
 	}
+	b = append(b, '\n')
 
-	return os.WriteFile(path, b, 0o644)
+	tmp, err := os.CreateTemp(dir, ".arcade-*.tmp")
+	if err != nil {
+		return err
+	}
+	tmpName := tmp.Name()
+	defer func() {
+		if err != nil {
+			_ = os.Remove(tmpName)
+		}
+	}()
+
+	if err = tmp.Chmod(0o644); err != nil {
+		_ = tmp.Close()
+		return err
+	}
+	if _, err = tmp.Write(b); err != nil {
+		_ = tmp.Close()
+		return err
+	}
+	if err = tmp.Sync(); err != nil {
+		_ = tmp.Close()
+		return err
+	}
+	if err = tmp.Close(); err != nil {
+		return err
+	}
+	if err = os.Rename(tmpName, path); err != nil {
+		return err
+	}
+
+	// Best-effort directory sync makes the rename durable on filesystems that
+	// support it. A failure here does not invalidate the already-atomic cache.
+	if d, openErr := os.Open(dir); openErr == nil {
+		_ = d.Sync()
+		_ = d.Close()
+	}
+
+	return nil
+}
+
+func joinWarnings(parts ...string) string {
+	var out []string
+	for _, part := range parts {
+		part = strings.TrimSpace(part)
+		if part != "" {
+			out = append(out, part)
+		}
+	}
+	return strings.Join(out, " · ")
 }

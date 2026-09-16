@@ -1,26 +1,24 @@
-# Marchine architecture — V1.20
+# Marchine architecture
 
 ## Layers
 
 ```text
 cmd/marchine
-    startup / flags / program lifecycle
+    flags, config bootstrap, doctor mode, program lifecycle
 
 internal/config
     TOML config, path expansion, atomic save
 
 internal/library
-    normalized launchable game model
+    normalized launchable-game model
 
 internal/mame
-    current automatic Arcade driver
-    ROM discovery + local MAME metadata + cache
+    automatic Arcade driver
+    ROM discovery, MAME XML parsing, CatVer, cache, launch arguments
 
 internal/ui
     Bubble Tea model/update/view
-    themes
-    responsive layout
-    rigid terminal sculpture renderer
+    themes, fixed responsive layout, embedded ANSI sculpture
 ```
 
 ## Launch model
@@ -31,25 +29,52 @@ Every selected item resolves to:
 command + args + optional working directory
 ```
 
-Marchine uses Bubble Tea process handoff so the game owns the terminal while running. Marchine resumes after the child process exits.
+Marchine uses Bubble Tea process handoff so the child application owns the terminal while running. Marchine resumes when the child exits.
+
+GAMES entries come directly from user config. ARCADE entries store durable local metadata plus MAME launch identity.
 
 ## Arcade driver
 
-The current automatic indexing driver is MAME-specific internally even though Setup uses the neutral label `EMULATOR EXECUTABLE`.
+The current automatic Arcade driver is MAME-specific internally even though Setup uses the neutral field label `EMULATOR EXECUTABLE`.
 
-The MAME driver reads local information using commands such as:
+A live refresh performs bounded external calls including:
 
 ```text
+mame -showconfig
 mame -version
 mame -listxml
 ```
 
-and indexes only ROMs present in the configured ROM path(s).
+Marchine discovers top-level `.zip` and `.7z` ROM archives in the configured/detected ROM directories, then filters MAME XML to machines whose ROM archive is present.
+
+MAME's XML display rotation is retained. A 90°/270° machine is marked vertical and launched with `-autorol`.
+
+If Marchine has explicit `arcade.rom_paths`, the same paths are passed to MAME using `-rompath` when launching. Auto-detected MAME paths are not unnecessarily forced back onto MAME; in auto mode MAME remains authoritative for its own configured rompath.
+
+## Cache model
+
+The Arcade cache is `arcade.json` under the platform user cache directory and carries schema:
+
+```text
+marchine-index-v4
+```
+
+Startup is cache-first. A forced refresh updates the cache atomically. A valid current cache is preserved as a fallback when a refresh fails or an external ROM source is temporarily unavailable.
+
+Cached metadata is separated from current launch configuration: when a cache is loaded, Marchine rehydrates MAME command/ROM-path launch arguments from the current config so editing Setup does not leave stale execution identity behind.
+
+Legacy caches are never silently treated as current-schema data. If the live source is unavailable they may be exposed only as an explicit degraded fallback requiring refresh.
+
+## Refresh concurrency
+
+Only one Arcade refresh may be started from the UI at a time. Repeated refresh requests while one scan is in progress do not spawn additional `mame -listxml` processes.
 
 ## Sculpture renderer
 
-`internal/ui/fightstick.ans` is embedded by `internal/ui/sculpture.go`. Rendering is 1:1; Marchine derives the current asset dimensions at runtime and sizes the detail column from the real ANSI width. It never resamples or reflows the character matrix. Limited vertical space uses a stable crop. Insufficient width hides the sculpture rather than deforming it.
+`internal/ui/fightstick.ans` is embedded by `internal/ui/sculpture.go`.
+
+The current plain geometry is **62×22 terminal cells**. Rendering is 1:1: Marchine does not resample, dither, morph, or reflow the character matrix. The detail panel derives its width from the asset. Limited vertical space may use a stable center crop; insufficient width hides the sculpture rather than deforming it.
 
 ## Minimum terminal geometry
 
-The normal launcher is rendered only at **100×48 terminal cells or larger**. Below that threshold `View()` returns a dedicated resize panel instead of invoking any compact/stacked launcher layout. This keeps the two-column game browser visually rigid.
+The normal launcher is rendered only at **124×48 terminal cells or larger**. Below that threshold `View()` returns a dedicated resize panel instead of switching to a compact/stacked game-browser layout.

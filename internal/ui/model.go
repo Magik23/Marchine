@@ -161,13 +161,14 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.status = "ARCADE INDEX ERROR: " + msg.Err.Error()
 			return m, nil
 		}
+		// A scan command captures the config that existed when it started. Apply
+		// the model's current launch identity before exposing the result so a
+		// Setup save made during indexing can never leave stale launch commands.
+		mame.ApplyLaunchConfig(msg.Result.Games, m.cfg.Arcade)
 		m.arcadeMeta = msg.Result
 		m.arcade = msg.Result.Games
 		if m.filter == "" && m.cfg.Arcade.HideJunk {
 			m.filter = filterArcade
-		}
-		if m.setupROM == "" && len(msg.Result.ROMPaths) > 0 {
-			m.setupROM = msg.Result.ROMPaths[0]
 		}
 		if msg.Result.Warning != "" {
 			m.status = msg.Result.Warning
@@ -285,6 +286,10 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "r", "R":
 			if m.demo {
 				m.status = "DEMO MODE · REFRESH DISABLED"
+				return m, nil
+			}
+			if m.loading {
+				m.status = "ARCADE REFRESH ALREADY IN PROGRESS"
 				return m, nil
 			}
 			if m.cfg.Arcade.Enabled {
@@ -473,12 +478,8 @@ func (m *Model) openSetup() {
 	if strings.TrimSpace(m.setupMAME) == "" {
 		m.setupMAME = m.cfg.Arcade.MAMECommand
 	}
-	if strings.TrimSpace(m.setupROM) == "" {
-		if len(m.cfg.Arcade.ROMPaths) > 0 {
-			m.setupROM = m.cfg.Arcade.ROMPaths[0]
-		} else if len(m.arcadeMeta.ROMPaths) > 0 {
-			m.setupROM = m.arcadeMeta.ROMPaths[0]
-		}
+	if strings.TrimSpace(m.setupROM) == "" && len(m.cfg.Arcade.ROMPaths) > 0 {
+		m.setupROM = m.cfg.Arcade.ROMPaths[0]
 	}
 	m.status = "ARCADE SETUP"
 }
@@ -558,18 +559,51 @@ func (m Model) saveSetup(refresh bool) (tea.Model, tea.Cmd) {
 	}
 	m.cfg.Arcade.Enabled = true
 	m.cfg.Arcade.MAMECommand = mameCommand
+
+	// Setup intentionally edits only the primary ROM path. Preserve any
+	// additional paths that were configured manually instead of silently
+	// collapsing a multi-path configuration to one entry. Clearing the primary
+	// field is explicit: it restores MAME rompath auto-detection and clears the
+	// configured list.
 	rom := strings.TrimSpace(m.setupROM)
 	if rom == "" {
 		m.cfg.Arcade.ROMPaths = nil
 	} else {
-		m.cfg.Arcade.ROMPaths = []string{rom}
+		paths := []string{rom}
+		seen := map[string]bool{rom: true}
+		if len(m.cfg.Arcade.ROMPaths) > 1 {
+			for _, existing := range m.cfg.Arcade.ROMPaths[1:] {
+				existing = strings.TrimSpace(existing)
+				if existing == "" || seen[existing] {
+					continue
+				}
+				seen[existing] = true
+				paths = append(paths, existing)
+			}
+		}
+		m.cfg.Arcade.ROMPaths = paths
 	}
+
+	// Keep the in-memory model normalized as well as the persisted copy. Save
+	// normalizes its value argument, but Setup must also use expanded ~/env paths
+	// immediately for refresh/launch without requiring a Marchine restart.
+	m.cfg.Normalize()
+
 	if err := config.Save(m.configPath, m.cfg); err != nil {
 		m.status = "SETUP SAVE FAILED: " + err.Error()
 		return m, nil
 	}
+
+	// Saving launch identity should take effect immediately, even if the user
+	// chooses not to refresh metadata.
+	mame.ApplyLaunchConfig(m.arcade, m.cfg.Arcade)
 	m.status = "SETUP SAVED"
+
 	if refresh {
+		if m.loading {
+			m.status = "SETUP SAVED · REFRESH ALREADY IN PROGRESS"
+			return m, nil
+		}
 		m.loading = true
 		m.source = library.SourceArcade
 		m.status = "SETUP SAVED · REFRESHING ARCADE LIBRARY…"

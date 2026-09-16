@@ -1,6 +1,7 @@
 package ui
 
 import (
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -10,6 +11,17 @@ import (
 	"github.com/magik23/marchine/internal/config"
 	"github.com/magik23/marchine/internal/library"
 )
+
+func creditArtSignature(t *testing.T) string {
+	t.Helper()
+	for _, line := range strings.Split(creditsBBSArt(), "\n") {
+		if signature := strings.TrimSpace(line); signature != "" {
+			return signature
+		}
+	}
+	t.Fatal("credit artwork contains no visible lines")
+	return ""
+}
 
 func TestDemoArcadeFiltering(t *testing.T) {
 	cfg := config.Default()
@@ -260,28 +272,30 @@ func TestCreditASCIIIsHighInCreditsScreen(t *testing.T) {
 	lines := strings.Split(plain, "\n")
 	creditLine := -1
 	artLine := -1
+	signature := creditArtSignature(t)
 	for i, line := range lines {
 		if creditLine < 0 && strings.Contains(line, "CREDITS") {
 			creditLine = i
 		}
-		if artLine < 0 && strings.Contains(line, "__  __    _    ____") {
+		if artLine < 0 && strings.Contains(line, signature) {
 			artLine = i
 		}
 	}
 	if creditLine < 0 || artLine < 0 {
-		t.Fatalf("missing credits heading/art: credit=%d art=%d", creditLine, artLine)
+		t.Fatalf("missing credits heading/current art: credit=%d art=%d signature=%q", creditLine, artLine, signature)
 	}
 	if artLine-creditLine > 4 {
 		t.Fatalf("credit ASCII still sits too low: heading line=%d art line=%d", creditLine, artLine)
 	}
 }
 
-func TestInfoUsesCurrentCreditASCIIAsset(t *testing.T) {
+func TestCreditsUsesCurrentEmbeddedASCIIAsset(t *testing.T) {
 	art := creditsBBSArt()
-	for _, want := range []string{"__  __    _    ____", "| |_| |/ ___", "|___/"} {
-		if !strings.Contains(art, want) {
-			t.Fatalf("INFO credit artwork missing supplied fragment %q", want)
-		}
+	if strings.TrimSpace(art) == "" {
+		t.Fatal("embedded credit artwork is empty")
+	}
+	if !strings.Contains(art, creditArtSignature(t)) {
+		t.Fatal("embedded credit artwork lost its current signature")
 	}
 }
 
@@ -302,12 +316,13 @@ func TestWideCreditsPlaceASCIIBesideCopy(t *testing.T) {
 	m := NewModel(cfg, "", false, true)
 	credits := ansiEscape.ReplaceAllString(m.renderCredits(160, 48), "")
 	lines := strings.Split(credits, "\n")
+	signature := creditArtSignature(t)
 	for _, line := range lines {
-		if strings.Contains(line, "MARCHINE — Game Machinery.") && strings.Contains(line, "__  __    _    ____") {
+		if strings.Contains(line, "MARCHINE — Game Machinery.") && strings.Contains(line, signature) {
 			return
 		}
 	}
-	t.Fatalf("wide CREDITS did not place credit ASCII beside credit copy")
+	t.Fatalf("wide CREDITS did not place current credit ASCII beside credit copy")
 }
 
 func TestFrontFooterCreditsIsLastItem(t *testing.T) {
@@ -510,5 +525,138 @@ func TestMainPanelsUseTheirFullInteriorWidth(t *testing.T) {
 	// older builds left four invisible cells on the right of every row.
 	if !strings.HasSuffix(lines[2], "│") {
 		t.Fatalf("list row did not reach right border: %q", lines[2])
+	}
+}
+
+func TestRefreshIsSingleFlight(t *testing.T) {
+	cfg := config.Default()
+	m := NewModel(cfg, "", false, false)
+	m.width = minTerminalWidth
+	m.height = minTerminalHeight
+	m.loading = false
+
+	next, firstCmd := m.Update(tea.KeyPressMsg(tea.Key{Code: 'r', Text: "r"}))
+	m = next.(Model)
+	if firstCmd == nil || !m.loading {
+		t.Fatal("first refresh should start exactly one scan command")
+	}
+
+	next, secondCmd := m.Update(tea.KeyPressMsg(tea.Key{Code: 'r', Text: "r"}))
+	m = next.(Model)
+	if secondCmd != nil {
+		t.Fatal("second refresh while loading should not start another scan")
+	}
+	if m.status != "ARCADE REFRESH ALREADY IN PROGRESS" {
+		t.Fatalf("unexpected single-flight status %q", m.status)
+	}
+}
+
+func TestSetupPreservesAdditionalROMPaths(t *testing.T) {
+	d := t.TempDir()
+	path := d + "/config.toml"
+	cfg := config.Default()
+	cfg.Arcade.ROMPaths = []string{"/roms/primary", "/roms/secondary", "/roms/third"}
+
+	m := NewModel(cfg, path, false, false)
+	m.loading = false
+	m.setupROM = "/roms/replacement"
+	next, cmd := m.saveSetup(false)
+	if cmd != nil {
+		t.Fatal("save-only Setup should not start a command")
+	}
+	m = next.(Model)
+
+	want := []string{"/roms/replacement", "/roms/secondary", "/roms/third"}
+	if len(m.cfg.Arcade.ROMPaths) != len(want) {
+		t.Fatalf("ROM paths=%#v want=%#v", m.cfg.Arcade.ROMPaths, want)
+	}
+	for i := range want {
+		if m.cfg.Arcade.ROMPaths[i] != want[i] {
+			t.Fatalf("ROM paths=%#v want=%#v", m.cfg.Arcade.ROMPaths, want)
+		}
+	}
+
+	saved, err := config.Load(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for i := range want {
+		if saved.Arcade.ROMPaths[i] != want[i] {
+			t.Fatalf("saved ROM paths=%#v want=%#v", saved.Arcade.ROMPaths, want)
+		}
+	}
+}
+
+func TestSetupEmptyROMPathRestoresAutoDetect(t *testing.T) {
+	d := t.TempDir()
+	path := d + "/config.toml"
+	cfg := config.Default()
+	cfg.Arcade.ROMPaths = []string{"/roms/a", "/roms/b"}
+
+	m := NewModel(cfg, path, false, false)
+	m.loading = false
+	m.setupROM = ""
+	next, _ := m.saveSetup(false)
+	m = next.(Model)
+	if len(m.cfg.Arcade.ROMPaths) != 0 {
+		t.Fatalf("empty primary path should restore auto-detect, got %#v", m.cfg.Arcade.ROMPaths)
+	}
+}
+
+func TestTrimAndPadUseTerminalCellWidth(t *testing.T) {
+	wide := "東京🎮 Arcade"
+	trimmed := trim(wide, 7)
+	if got := lipgloss.Width(trimmed); got > 7 {
+		t.Fatalf("trimmed Unicode width=%d want<=7: %q", got, trimmed)
+	}
+
+	padded := pad("東京", 8)
+	if got := lipgloss.Width(padded); got != 8 {
+		t.Fatalf("padded Unicode width=%d want=8: %q", got, padded)
+	}
+}
+
+func TestSetupNormalizesRuntimeLaunchPathsImmediately(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+
+	path := filepath.Join(t.TempDir(), "config.toml")
+	cfg := config.Default()
+	m := NewModel(cfg, path, false, false)
+	m.loading = false
+	m.arcade = []library.Game{{
+		ID:     "mame:1942",
+		Name:   "1942",
+		Source: library.SourceArcade,
+		ROM:    "1942",
+	}}
+	m.setupMAME = "~/bin/mame"
+	m.setupROM = "$HOME/roms"
+
+	next, cmd := m.saveSetup(false)
+	if cmd != nil {
+		t.Fatal("save-only Setup should not start a command")
+	}
+	m = next.(Model)
+
+	wantMAME := filepath.Join(home, "bin", "mame")
+	wantROM := filepath.Join(home, "roms")
+	if m.cfg.Arcade.MAMECommand != wantMAME {
+		t.Fatalf("runtime MAME command=%q want=%q", m.cfg.Arcade.MAMECommand, wantMAME)
+	}
+	if len(m.cfg.Arcade.ROMPaths) != 1 || m.cfg.Arcade.ROMPaths[0] != wantROM {
+		t.Fatalf("runtime ROM paths=%#v want=%q", m.cfg.Arcade.ROMPaths, wantROM)
+	}
+	if got := m.arcade[0].Command; got != wantMAME {
+		t.Fatalf("in-memory Arcade command=%q want=%q", got, wantMAME)
+	}
+	wantArgs := []string{"1942", "-rompath", wantROM}
+	if len(m.arcade[0].Args) != len(wantArgs) {
+		t.Fatalf("in-memory Arcade args=%#v want=%#v", m.arcade[0].Args, wantArgs)
+	}
+	for i := range wantArgs {
+		if m.arcade[0].Args[i] != wantArgs[i] {
+			t.Fatalf("in-memory Arcade args=%#v want=%#v", m.arcade[0].Args, wantArgs)
+		}
 	}
 }

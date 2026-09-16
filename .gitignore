@@ -17,3 +17,11 @@ config.toml
 *.swp
 *.swo
 .DS_Store
+
+# Generated AUR packaging output (the AUR repository is finalized separately)
+/packaging/PKGBUILD
+/packaging/.SRCINFO
+/packaging/*.pkg.tar.*
+/packaging/*.src.tar.*
+/packaging/src/
+/packaging/pkg/

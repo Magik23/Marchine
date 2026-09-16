@@ -763,12 +763,19 @@ func (m Model) renderList(width, height int) string {
 	var b strings.Builder
 
 	if m.source == library.SourceArcade {
-		nameW := max(10, innerW-22)
-		yearW := 6
-		makerW := max(
-			10,
-			innerW-nameW-yearW-2,
-		)
+		// Let wide windows benefit all three Arcade columns instead of giving
+		// nearly every extra cell to NAME. YEAR stays comfortably fixed while
+		// MANUFACTURER receives about a third of the available row width.
+		yearW := 7
+		makerW := max(16, innerW*34/100)
+		nameW := innerW - yearW - makerW - 2
+
+		// Defensive fallback for unusually narrow layouts. Marchine normally
+		// reaches its minimum-terminal gate before this becomes necessary.
+		if nameW < 20 {
+			makerW = max(10, innerW-yearW-22)
+			nameW = innerW - yearW - makerW - 2
+		}
 
 		b.WriteString(
 			muted.Render(
@@ -941,11 +948,7 @@ func (m Model) renderDetail(width, height int) string {
 
 	var b strings.Builder
 
-	if sculpture := FightstickSculpture(
-		innerW,
-		sculptH,
-		m.theme,
-	); sculpture != "" {
+	if sculpture := FightstickSculpture(innerW, sculptH, m.theme); sculpture != "" {
 		b.WriteString(sculpture)
 		b.WriteByte('\n')
 
@@ -1193,7 +1196,7 @@ func (m Model) renderSetup(width, height int) string {
 	b.WriteString("\n\n")
 
 	b.WriteString(
-		muted.Render("ROM PATH"),
+		muted.Render("PRIMARY ROM PATH"),
 	)
 
 	b.WriteByte('\n')
@@ -1312,7 +1315,7 @@ func (m Model) renderSetup(width, height int) string {
 
 	b.WriteString(
 		muted.Render(
-			"Enter edits the selected field. Empty ROM path = use the emulator's configured rompath.",
+			"Enter edits the selected field. Empty primary path = MAME rompath auto-detect; extra config paths are preserved.",
 		),
 	)
 
@@ -1892,35 +1895,24 @@ func trim(s string, width int) string {
 		return ""
 	}
 
-	r := []rune(s)
-
-	if len(r) <= width {
+	if ansi.StringWidth(s) <= width {
 		return s
 	}
 
-	if width == 1 {
-		return "…"
-	}
-
-	return string(r[:width-1]) +
-		"…"
+	return ansi.Truncate(s, width, "…")
 }
 
 func pad(s string, width int) string {
-	n := len([]rune(s))
-
-	if n >= width {
-		return trim(
-			s,
-			width,
-		)
+	if width <= 0 {
+		return ""
 	}
 
-	return s +
-		strings.Repeat(
-			" ",
-			width-n,
-		)
+	n := ansi.StringWidth(s)
+	if n >= width {
+		return trim(s, width)
+	}
+
+	return s + strings.Repeat(" ", width-n)
 }
 
 func clamp(v, lo, hi int) int {

@@ -25,3 +25,21 @@ func TestSaveCreatesConfig(t *testing.T) {
 		t.Fatalf("saved config missing arcade paths: %s", s)
 	}
 }
+
+func TestSaveLeavesNoTemporaryFile(t *testing.T) {
+	d := t.TempDir()
+	p := filepath.Join(d, "nested", "config.toml")
+	if err := Save(p, Default()); err != nil {
+		t.Fatal(err)
+	}
+
+	entries, err := os.ReadDir(filepath.Dir(p))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, entry := range entries {
+		if strings.HasPrefix(entry.Name(), ".config-") && strings.HasSuffix(entry.Name(), ".tmp") {
+			t.Fatalf("temporary config file left behind: %s", entry.Name())
+		}
+	}
+}
