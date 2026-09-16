@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 1.22.0
 - Production-hardening pass for the pre-AUR release.
 - Fixed stale Credits tests so the complete Go test suite matches the current embedded artwork.
 - Added real Arcade cache schema validation (`marchine-index-v4`), atomic cache writes, degraded-cache diagnostics, and saved-library fallback when refresh/source access fails.
