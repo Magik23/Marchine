@@ -20,13 +20,13 @@ The current GitHub release workflow publishes a **Linux amd64** archive and SHA-
 
 1. Open the [latest release](https://github.com/Magik23/Marchine/releases/latest).
 2. Download:
-   - `marchine-vX.Y.Z-linux-amd64.tar.gz`
-   - `marchine-vX.Y.Z-linux-amd64.tar.gz.sha256`
+   - `marchine-X.Y.Z-linux-amd64.tar.gz`
+   - `marchine-X.Y.Z-linux-amd64.tar.gz.sha256`
 3. Verify and install:
 
 ```bash
-sha256sum -c marchine-vX.Y.Z-linux-amd64.tar.gz.sha256
-tar -xzf marchine-vX.Y.Z-linux-amd64.tar.gz
+sha256sum -c marchine-X.Y.Z-linux-amd64.tar.gz.sha256
+tar -xzf marchine-X.Y.Z-linux-amd64.tar.gz
 
 install -Dm755 marchine "$HOME/.local/bin/marchine"
 
