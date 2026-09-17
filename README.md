@@ -1,190 +1,322 @@
-# MARCHINE
+# Marchine
 
-## Game Machinery.
+**Game Machinery.**
 
-Marchine is a terminal-native game launcher for a local, direct, keyboard-first Linux workflow. It is MAME-first without trying to become a game encyclopedia: no artwork scraping, ratings, achievements, cloud accounts, store walls, or ROM modification.
+**Linux-first, terminal-native game launcher. Built on Arch. At home in Omarchy. MAME-first by design.**
 
-Marchine indexes what is locally launchable, hands the terminal to the selected game, and returns when the child process exits.
+[Get Marchine](https://github.com/Magik23/Marchine/releases/latest) · [Albenoir Lab](https://albenoir.com/lab/)
 
-## Current interface
+![Marchine browsing a local MAME library on Linux](docs/images/marchine-library.png)
 
-- **GAMES** — flat user-defined launch targets.
-- **ARCADE** — automatic local MAME indexing.
-- Search, CatVer-backed categories, and a non-destructive Hide Non-Arcade filter.
-- Four terminal themes: violet, cyan, green, and amber.
-- Static embedded ANSI fightstick sculpture; no image renderer or runtime animation.
-- Separate Info, Credits, Categories, and Setup screens.
-- Minimum supported terminal geometry: **124 columns × 48 rows**.
-- Current embedded sculpture geometry: **62 columns × 22 rows**.
+Marchine is a focused, keyboard-driven launcher for games you already own and can run locally.
 
-Below the minimum geometry Marchine shows a resize message instead of collapsing into a different layout.
+It is intentionally **not** a game encyclopedia. There is no artwork scraping, account layer, ratings wall, achievements feed, store metadata, or cloud library. Marchine indexes what you can launch, keeps useful local metadata close, and gets out of the way.
 
-## Controls
+## Get Marchine
 
-```text
-↑ / ↓, j / k   Navigate
-/              Search
-Tab            Games / Arcade
-C              Categories (Arcade)
-Enter          Launch
-R              Refresh Arcade Library
-S              Setup
-T              Cycle theme
-H              Toggle Hide Non-Arcade
-I              Info
-O              Credits
-Q              Quit
-```
+### Prebuilt Linux release
 
-The in-app Info screen is the canonical shortcut reference.
+The current GitHub release workflow publishes a **Linux amd64** archive and SHA-256 checksum.
 
-## GAMES
-
-GAMES is a flat list of arbitrary launch targets. Display identity stays separate from launch identity.
-
-```toml
-[[games]]
-name = "Terminator 2D"
-command = "/home/user/Games/Terminator2D/Terminator2D.x86_64"
-args = []
-working_dir = "/home/user/Games/Terminator2D"
-```
-
-A command can also be a launcher such as Steam:
-
-```toml
-[[games]]
-name = "Terminator 2D"
-command = "steam"
-args = ["-applaunch", "1718460"]
-```
-
-## ARCADE / MAME
-
-The current automatic Arcade driver is MAME. Marchine uses only local data:
-
-- configured or detected ROM paths;
-- `mame -version`;
-- `mame -listxml`;
-- optional CatVer metadata.
-
-The list shows restrained metadata such as name, year, and manufacturer. Marchine never renames, moves, repairs, or deletes ROM files.
-
-### ROM discovery
-
-Marchine indexes top-level `.zip` and `.7z` archives found in the configured/detected ROM directories. Directory-only or CHD-only entries are not independently discovered unless the corresponding parent ROM archive is present.
-
-If `arcade.rom_paths` is empty, Marchine tries MAME's configured `rompath` and common local MAME directories. If paths are explicitly configured in Marchine, those paths are also passed to MAME at launch so indexing and launching use the same source locations.
-
-Multiple explicit ROM paths are supported in TOML. The Setup screen edits the **primary** path and preserves additional configured paths. Clearing the primary path in Setup intentionally returns to MAME rompath auto-detection.
-
-### Portrait games
-
-Marchine reads MAME display rotation metadata. Games whose MAME display reports 90° or 270° are launched with `-autorol`.
-
-### Cache behavior
-
-Arcade metadata is cached at the platform user-cache location (`~/.cache/marchine/arcade.json` on a typical Linux setup) using schema `marchine-index-v4`.
-
-Normal startup is cache-first. A manual refresh performs a live scan. If a current saved library exists and MAME, a ROM path, or a refresh scan temporarily fails, Marchine keeps the saved library rather than destroying it. Cache writes are atomic.
-
-## Setup
-
-Press `S`.
-
-```text
-EMULATOR EXECUTABLE
-PRIMARY ROM PATH
-```
-
-`Ctrl+S` saves. `R` saves and refreshes the Arcade library. Configuration is stored at the platform user-config location (`~/.config/marchine/config.toml` on a typical Linux setup).
-
-A starter file is available as `config.example.toml`, or can be created with:
+1. Open the [latest release](https://github.com/Magik23/Marchine/releases/latest).
+2. Download:
+   - `marchine-vX.Y.Z-linux-amd64.tar.gz`
+   - `marchine-vX.Y.Z-linux-amd64.tar.gz.sha256`
+3. Verify and install:
 
 ```bash
+sha256sum -c marchine-vX.Y.Z-linux-amd64.tar.gz.sha256
+tar -xzf marchine-vX.Y.Z-linux-amd64.tar.gz
+
+install -Dm755 marchine "$HOME/.local/bin/marchine"
+
 marchine --init-config
+marchine
 ```
 
-Useful diagnostics:
+If `~/.local/bin` is not already on your `PATH`, add it through your shell configuration.
+
+### Requirements
+
+- Linux
+- A Unicode-capable terminal; truecolor is recommended
+- MAME for the automatic **ARCADE** source
+- No MAME requirement for manually configured **GAMES** entries
+
+Marchine is developed on Arch Linux and fits naturally into keyboard-driven desktops such as Omarchy and Hyprland. It is not tied to Omarchy itself.
+
+## What Marchine does
+
+Marchine has two intentionally simple sources.
+
+### GAMES
+
+A flat list of things you can execute.
+
+Display identity stays separate from launch identity:
+
+```toml
+[[games]]
+name = "OpenTyrian"
+command = "opentyrian"
+args = []
+```
+
+You can also launch scripts, native executables, Steam commands, or other local targets.
+
+### ARCADE
+
+The current automatic Arcade driver is **MAME**.
+
+Marchine discovers installed ROMs, asks MAME for canonical machine identity and metadata, optionally applies local CatVer category data, and builds a persistent local Arcade library.
+
+Typical visible metadata is deliberately restrained:
+
+```text
+NAME                     YEAR   MANUFACTURER
+DoDonPachi               1997   Cave
+Battle Garegga           1996   Raizing
+R-Type                   1987   Irem
+```
+
+Marchine does not rename, move, repair, or delete ROMs.
+
+## Fast startup, explicit refresh
+
+Marchine keeps the indexed Arcade library locally so normal startup does not need to rescan thousands of ROM files or ask MAME for metadata every time.
+
+```text
+Normal launch
+    ↓
+Load saved Arcade library
+    ↓
+Browse / search / filter
+```
+
+When your ROM collection changes, press:
+
+```text
+R
+```
+
+to **Refresh Arcade Library**.
+
+The refresh pipeline uses the configured ROM source, MAME metadata, and optional CatVer data to rebuild the saved library.
+
+A temporarily unavailable ROM drive or missing MAME executable should not silently erase a previously valid library.
+
+The normal cache lives at:
+
+```text
+~/.cache/marchine/arcade.json
+```
+
+For diagnostics:
 
 ```bash
 marchine --doctor
 marchine --doctor --rescan
 ```
 
-A doctor run exits nonzero when it encounters an operational diagnostic failure.
+## Categories without the encyclopedia
+
+![Marchine arcade categories and local metadata filters](docs/images/marchine-categories.png)
+
+Marchine treats categories as views over one indexed library rather than separate duplicated playlists.
+
+CatVer is optional local metadata. When available, Marchine can expose launcher-oriented groups such as:
+
+```text
+SHMUPS
+FIGHTING
+RUN & GUN
+BEAT 'EM UP
+RACING
+PUZZLE
+```
+
+`HIDE NON-ARCADE` is non-destructive. It changes what the interface presents; it does not delete entries from the underlying index or touch ROM files.
+
+## Built-in help, small by design
+
+![Marchine built-in help, shortcuts and Linux-first workflow](docs/images/marchine-help.png)
+
+Marchine keeps setup, shortcuts, project information, and credits inside the TUI.
+
+### Main controls
+
+| Key | Action |
+| --- | --- |
+| `↑` / `↓`, `j` / `k` | Navigate |
+| `/` | Search |
+| `Tab` | Switch Games / Arcade |
+| `C` | Arcade categories |
+| `Enter` | Launch |
+| `R` | Refresh Arcade Library |
+| `H` | Toggle Hide Non-Arcade |
+| `T` | Cycle theme |
+| `S` | Setup |
+| `I` | Info |
+| `O` | Credits |
+| `Q` | Quit |
+
+Marchine also supports `PgUp`, `PgDown`, `Home`, and `End` for longer lists.
+
+## Setup
+
+Open Setup with:
+
+```text
+S
+```
+
+The two primary Arcade fields are deliberately neutral:
+
+```text
+EMULATOR EXECUTABLE
+ROM PATH
+```
+
+The current automatic driver is MAME, but the executable + ROM-path relationship is intentionally reusable for future command-line emulator drivers.
+
+Configuration is stored at:
+
+```text
+~/.config/marchine/config.toml
+```
+
+You can create a starter configuration explicitly with:
+
+```bash
+marchine --init-config
+```
+
+An empty ROM path allows Marchine to use MAME's configured `rompath` and common Linux MAME locations.
+
+### Optional CatVer metadata
+
+Marchine does not scrape online game databases.
+
+If a local CatVer file is available, it can be configured explicitly or discovered from common Linux locations such as:
+
+```text
+~/.mame/catver.ini
+~/.attract/metadata/catver.ini
+~/MAME-Curation/catver.ini
+/usr/share/mame/catver.ini
+```
+
+## Built with
+
+- **Go**
+- **Bubble Tea**
+- **Lip Gloss**
+- **MAME** for the current automatic Arcade driver
+- **TOML** for local configuration
+- optional **CatVer** for local category metadata
+
+The interface is a native terminal UI. There is no Electron shell, browser renderer, artwork service, or online account layer.
 
 ## Build from source
 
 Requirements:
 
 - Linux
-- Go **1.26 or newer**
-- Unicode/truecolor terminal recommended
-- MAME only if using the automatic Arcade source
-
-Dependencies are committed under `vendor/`, so normal build/test operations are offline-capable.
+- Go 1.23.2+
+- Git
+- `make`
 
 ```bash
-make check
+git clone https://github.com/Magik23/Marchine.git
+cd Marchine
+
+make test
 make build
+
+./dist/marchine --version
 ./dist/marchine --demo
 ```
 
-`make vendor-refresh` is only for intentionally updating the Go dependency snapshot.
-
-Source-archive builds without Git metadata use the visible version `dev`. Release/package builds inject the release version explicitly.
-
-## Local desktop integration
-
-From a source checkout, the upstream helper installer places Marchine in `~/.local/bin`, creates a starter config if needed, and installs the optional Foot desktop launcher only when Foot is present:
+Install the locally built binary:
 
 ```bash
-./scripts/install.sh
+make install
+marchine --init-config
+marchine
 ```
 
-The Foot-specific local desktop template is `packaging/marchine.desktop.in`.
+Marchine vendors its Go dependencies, so normal build and test targets can use the committed dependency snapshot.
 
-The generic Linux/AUR desktop entry is `packaging/marchine.desktop`; it launches
-Marchine through the user's default terminal and uses the packaged `marchine` icon.
-
-An optional Omarchy/Hyprland floating-window example is provided at:
+## Project structure
 
 ```text
-packaging/omarchy/marchine.lua
+cmd/marchine/        program entry point and CLI flags
+internal/config/     TOML configuration and path handling
+internal/library/    normalized launchable game model
+internal/mame/       MAME indexing, local metadata and Arcade cache
+internal/ui/         Bubble Tea model, views, themes and terminal sculpture
+docs/                architecture and project notes
+packaging/           distribution packaging work
+scripts/             local install helpers
 ```
 
-It is intentionally **not** installed into a user's compositor configuration by packaging.
+## Design boundary
 
-## AUR packaging
-
-The upstream repository contains a production AUR template rather than a fake checksum:
+Marchine deliberately separates responsibilities:
 
 ```text
-packaging/PKGBUILD.example
+MAME
+  machine identity
+  machine metadata
+  ROM dependency rules
+  emulation
+
+CatVer
+  optional local category metadata
+
+Marchine
+  local indexing
+  saved records
+  search and filters
+  category views
+  launch orchestration
+  terminal interface
 ```
 
-After a real release tag exists, generate the final `PKGBUILD` and `.SRCINFO` on Arch with:
+The guiding idea is simple:
 
-```bash
-./packaging/finalize-aur.sh 1.22.1
-./packaging/verify-aur.sh
+> **MAME defines what the games are. CatVer helps describe what kind of games they are. Marchine remembers the result. The user decides when to refresh it.**
+
+## Small by design
+
+Marchine deliberately does not try to become a game database.
+
+- no artwork scraping
+- no account layer
+- no ratings or reviews
+- no achievement system
+- no ROM-file modification
+- no provider/store wall
+- no encyclopedia sprawl
+
+It indexes what you own and launches it cleanly.
+
+## Status
+
+Marchine is an active Linux-first project. The current automatic Arcade driver is MAME; additional command-line emulator drivers are possible when they fit Marchine's simple model:
+
+```text
+EMULATOR + ROM PATH → INDEX → EXECUTE
 ```
 
-Use the actual release version in place of the example above.
+## Credits
 
-The AUR package installs the Marchine binary, a generic `Terminal=true` desktop entry, and the official 128, 256, and 512 pixel application icons. It does not depend on Foot or modify compositor configuration. The Foot launcher template and Omarchy/Hyprland integration remain optional examples.
+**Marchine — Game Machinery.**
 
-## Release policy
+Conceived, directed, and designed by **Pierre Dionne / Albenoir Studio**.
 
-Pushes and pull requests run formatting, tests, vet, vulnerability analysis, static analysis, shell validation, and desktop-entry validation in GitHub Actions. Tag builds repeat the source checks before producing a versioned Linux amd64 archive with the MIT license, README, config example, and bundled third-party license texts.
-
-## Philosophy
-
-Marchine is not a frontend museum. It is a terminal-native index of things you can launch.
-
-If a launch source already knows useful information locally, Marchine may show it. Marchine does not go onto the Internet to decorate your library.
+Built in Go with Bubble Tea and Lip Gloss.
 
 ## License
 
-MIT. See `LICENSE`.
+Marchine is released under the [MIT License](LICENSE).
