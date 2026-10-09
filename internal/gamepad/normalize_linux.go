@@ -28,7 +28,7 @@ func NewNormalizer(absInfo map[evdev.EvCode]evdev.AbsInfo) *Normalizer {
 // Handle keeps the original press-only interface available.
 func (n *Normalizer) Handle(event evdev.InputEvent) (Action, bool) {
 	signal, ok := n.HandleSignal(event)
-	if ok == false || signal.Pressed == false {
+	if !ok || !signal.Pressed {
 		return ActionNone, false
 	}
 
@@ -197,7 +197,7 @@ func axisAction(code evdev.EvCode, position int8) Action {
 func (n *Normalizer) triggerPressed(code evdev.EvCode, value int32) bool {
 	info, ok := n.absInfo[code]
 
-	if ok == false || info.Maximum <= info.Minimum {
+	if !ok || info.Maximum <= info.Minimum {
 		return value > 127
 	}
 
@@ -210,7 +210,7 @@ func (n *Normalizer) triggerPressed(code evdev.EvCode, value int32) bool {
 func (n *Normalizer) analogPosition(code evdev.EvCode, value int32) int8 {
 	info, ok := n.absInfo[code]
 
-	if ok == false || info.Maximum <= info.Minimum {
+	if !ok || info.Maximum <= info.Minimum {
 		if value <= -16384 {
 			return -1
 		}

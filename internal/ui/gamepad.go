@@ -20,14 +20,14 @@ func (m Model) updateGamepad(action gamepad.Action) (tea.Model, tea.Cmd) {
 	}
 
 	if action == gamepad.ActionPreviousLetter {
-		if m.screen == screenLibrary && m.searchMode == false {
+		if m.screen == screenLibrary && !m.searchMode {
 			m.cycleJumpLetter(-1)
 		}
 		return m, nil
 	}
 
 	if action == gamepad.ActionNextLetter {
-		if m.screen == screenLibrary && m.searchMode == false {
+		if m.screen == screenLibrary && !m.searchMode {
 			m.cycleJumpLetter(1)
 		}
 		return m, nil
@@ -49,7 +49,7 @@ func (m Model) updateGamepad(action gamepad.Action) (tea.Model, tea.Cmd) {
 	}
 
 	// Controller library navigation wraps at the ends.
-	if m.screen == screenLibrary && m.searchMode == false {
+	if m.screen == screenLibrary && !m.searchMode {
 		switch action {
 		case gamepad.ActionUp:
 			m.moveGamepadCursor(-1)
@@ -61,7 +61,7 @@ func (m Model) updateGamepad(action gamepad.Action) (tea.Model, tea.Cmd) {
 	}
 
 	key, ok := m.gamepadKey(action)
-	if ok == false {
+	if !ok {
 		return m, nil
 	}
 

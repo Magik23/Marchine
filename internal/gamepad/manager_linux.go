@@ -177,7 +177,7 @@ func (m *Manager) run() {
 				action: action,
 			}
 
-			if input.signal.Pressed == false {
+			if !input.signal.Pressed {
 				delete(held, key)
 				continue
 			}
@@ -200,7 +200,7 @@ func (m *Manager) run() {
 				}
 			}
 
-			if emit(device, action) == false {
+			if !emit(device, action) {
 				return
 			}
 
@@ -210,7 +210,7 @@ func (m *Manager) run() {
 					continue
 				}
 
-				if emit(state.device, key.action) == false {
+				if !emit(state.device, key.action) {
 					return
 				}
 
