@@ -1,5 +1,15 @@
 # Changelog
 
+## Unreleased
+- Added native Linux gamepad support using evdev, with capability-based device discovery, hotplug handling, multiple-controller support, and accelerated held navigation.
+- Added fixed controller mappings for launch/back, source switching, Index, Categories, Setup, Theme, Info, and Credits; Search remains keyboard-driven.
+- Added Index jumping with available first-character buckets, wraparound navigation, confirm, and cancel/restore behavior.
+- Added Info-screen Quick Settings for **Fullscreen on Launch** and **Hide Non-Arcade**, navigable by keyboard or controller and persisted in Marchine's config.
+- Added the `marchine --desktop` bootstrap so Marchine can read its fullscreen preference before creating its Foot window; the setting affects Marchine only and leaves MAME display configuration untouched.
+- Aligned the local installer and packaged Linux/AUR desktop entry on the same Foot-based desktop launch path, with Foot declared as a package runtime dependency.
+- Exposed Setup in the main footer and hardened page composition so the footer remains visible at the supported minimum terminal geometry.
+- Vendored `github.com/holoplot/go-evdev` and added regression coverage for gamepad input, Quick Settings persistence, and normal/fullscreen desktop launch arguments.
+
 ## 1.22.1
 - Added the official Marchine application icons in 128, 256, and 512 pixel sizes.
 - Added a generic Linux desktop entry with `Terminal=true` and `Icon=marchine`, without requiring Foot.

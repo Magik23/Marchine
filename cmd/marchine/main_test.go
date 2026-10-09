@@ -56,3 +56,46 @@ func TestRunDoctorFailsOnOperationalDiagnostic(t *testing.T) {
 		t.Fatal("doctor should return an error when MAME cannot be found and no cache exists")
 	}
 }
+
+func TestDesktopFootArgsNormalWindow(t *testing.T) {
+	got := strings.Join(
+		desktopFootArgs("/tmp/marchine", "/tmp/config.toml", false),
+		"\x00",
+	)
+	want := strings.Join(
+		[]string{
+			"--app-id=marchine",
+			"--override=colors-dark.alpha=0.98",
+			"-e",
+			"/tmp/marchine",
+			"--config",
+			"/tmp/config.toml",
+		},
+		"\x00",
+	)
+	if got != want {
+		t.Fatalf("normal desktop args=%q want=%q", got, want)
+	}
+}
+
+func TestDesktopFootArgsFullscreen(t *testing.T) {
+	got := strings.Join(
+		desktopFootArgs("/tmp/marchine", "/tmp/config.toml", true),
+		"\x00",
+	)
+	want := strings.Join(
+		[]string{
+			"--app-id=marchine",
+			"--override=colors-dark.alpha=0.98",
+			"--fullscreen",
+			"-e",
+			"/tmp/marchine",
+			"--config",
+			"/tmp/config.toml",
+		},
+		"\x00",
+	)
+	if got != want {
+		t.Fatalf("fullscreen desktop args=%q want=%q", got, want)
+	}
+}

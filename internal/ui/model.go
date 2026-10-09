@@ -46,19 +46,27 @@ const (
 	setupFieldCount
 )
 
+const (
+	infoSettingFullscreen = iota
+	infoSettingHideNonArcade
+	infoSettingCount
+)
+
 type Model struct {
-	cfg        config.Config
-	configPath string
-	theme      Theme
-	games      []library.Game
-	arcade     []library.Game
-	source     library.Source
-	filter     string
-	cursor     int
-	search     string
-	searchMode bool
-	width      int
-	height     int
+	letterJump       string
+	letterJumpOrigin int
+	cfg              config.Config
+	configPath       string
+	theme            Theme
+	games            []library.Game
+	arcade           []library.Game
+	source           library.Source
+	filter           string
+	cursor           int
+	search           string
+	searchMode       bool
+	width            int
+	height           int
 
 	loading     bool
 	forceRescan bool
@@ -77,6 +85,7 @@ type Model struct {
 	setupROM      string
 
 	categoryCursor int
+	infoSetting    int
 }
 
 func NewModel(cfg config.Config, configPath string, forceRescan, demo bool) Model {
@@ -202,7 +211,15 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, nil
 		}
 
+	case GamepadMsg:
+		return m.updateGamepad(msg.Action)
+
 	case tea.KeyPressMsg:
+		if m.letterJump != "" {
+			m.letterJump = ""
+			m.status = "READY"
+		}
+
 		// Match CLIAMP-style responsive behavior: while the terminal is below
 		// Marchine's minimum usable geometry, hide the app and ignore launcher
 		// actions. Resizing restores the exact previous state.
@@ -261,6 +278,10 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.moveCursor(-1)
 		case "down", "j":
 			m.moveCursor(1)
+		case "[":
+			m.cycleJumpLetter(-1)
+		case "]":
+			m.cycleJumpLetter(1)
 		case "pgup":
 			m.moveCursor(-m.pageSize())
 		case "pgdown":
@@ -323,6 +344,22 @@ func (m *Model) cycleTheme() {
 	}
 	if err := config.Save(m.configPath, m.cfg); err != nil {
 		m.status = "THEME SAVE FAILED: " + err.Error()
+	}
+}
+
+func (m *Model) toggleFullscreen() {
+	m.cfg.Fullscreen = !m.cfg.Fullscreen
+	if m.cfg.Fullscreen {
+		m.status = "FULLSCREEN ON LAUNCH · ON"
+	} else {
+		m.status = "FULLSCREEN ON LAUNCH · OFF"
+	}
+
+	if m.demo {
+		return
+	}
+	if err := config.Save(m.configPath, m.cfg); err != nil {
+		m.status = "FULLSCREEN SAVE FAILED: " + err.Error()
 	}
 }
 
@@ -420,12 +457,24 @@ func (m *Model) openInfo() {
 	}
 	m.screen = screenInfo
 	m.searchMode = false
+	m.infoSetting = infoSettingFullscreen
 }
 
 func (m Model) updateInfo(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	switch msg.String() {
 	case "ctrl+c", "q":
 		return m, tea.Quit
+	case "up", "k":
+		m.infoSetting = (m.infoSetting - 1 + infoSettingCount) % infoSettingCount
+	case "down", "j":
+		m.infoSetting = (m.infoSetting + 1) % infoSettingCount
+	case "enter":
+		switch m.infoSetting {
+		case infoSettingFullscreen:
+			m.toggleFullscreen()
+		case infoSettingHideNonArcade:
+			m.toggleHideNonArcade()
+		}
 	case "o", "O", "ctrl+g":
 		m.openCredits()
 	case "t", "ctrl+t":

@@ -419,7 +419,7 @@ func (s Style) Render(strs ...string) string {
 		var b strings.Builder
 
 		isFirst := true
-		for _, line := range strings.Split(str, "\n") {
+		for line := range strings.SplitSeq(str, "\n") {
 			if isFirst {
 				isFirst = false
 			} else {
@@ -607,7 +607,7 @@ func pad(str string, n int, style *ansi.Style, r rune) string {
 
 	b := strings.Builder{}
 	isFirst := true
-	for _, line := range strings.Split(str, "\n") {
+	for line := range strings.SplitSeq(str, "\n") {
 		if isFirst {
 			isFirst = false
 		} else {

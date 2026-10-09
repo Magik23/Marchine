@@ -7,6 +7,9 @@
 theme = "violet"
 startup_source = "arcade"
 
+# Marchine window mode. false = normal window, true = fullscreen on launch.
+fullscreen = false
+
 [arcade]
 enabled = true
 mame_command = "mame"

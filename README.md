@@ -8,7 +8,7 @@
 
 ![Marchine browsing a local MAME library on Linux](docs/images/marchine-library.png)
 
-Marchine is a focused, keyboard-driven launcher for games you already own and can run locally.
+Marchine is a focused, keyboard-and-controller launcher for games you already own and can run locally.
 
 It is intentionally **not** a game encyclopedia. There is no artwork scraping, account layer, ratings wall, achievements feed, store metadata, or cloud library. Marchine indexes what you can launch, keeps useful local metadata close, and gets out of the way.
 
@@ -42,6 +42,7 @@ If `~/.local/bin` is not already on your `PATH`, add it through your shell confi
 - A Unicode-capable terminal; truecolor is recommended
 - MAME for the automatic **ARCADE** source
 - No MAME requirement for manually configured **GAMES** entries
+- Foot only when using Marchine's packaged/local desktop launcher
 
 Marchine is developed on Arch Linux and fits naturally into keyboard-driven desktops such as Omarchy and Hyprland. It is not tied to Omarchy itself.
 
@@ -145,22 +146,28 @@ Marchine keeps setup, shortcuts, project information, and credits inside the TUI
 
 ### Main controls
 
-| Key | Action |
-| --- | --- |
-| `↑` / `↓`, `j` / `k` | Navigate |
-| `/` | Search |
-| `Tab` | Switch Games / Arcade |
-| `C` | Arcade categories |
-| `Enter` | Launch |
-| `R` | Refresh Arcade Library |
-| `H` | Toggle Hide Non-Arcade |
-| `T` | Cycle theme |
-| `S` | Setup |
-| `I` | Info |
-| `O` | Credits |
-| `Q` | Quit |
+| Keyboard | Controller | Action |
+| --- | --- | --- |
+| `↑` / `↓`, `j` / `k` | D-Pad / LS | Navigate |
+| `Enter` | A | Launch / Apply |
+| `Esc` | B | Back / Cancel |
+| `[` / `]` | LT / RT | Index |
+| `Tab` | LB / RB | Switch Games / Arcade |
+| `C` | Y | Categories |
+| `S` | Menu | Setup |
+| `T` | L3 | Theme |
+| `I` | X / View | Info |
+| `O` | R3 | Credits |
+| `/` | — | Search |
+| `R` | — | Refresh Arcade Library |
+| `H` | — | Hide Non-Arcade |
+| `Q` | — | Quit |
 
 Marchine also supports `PgUp`, `PgDown`, `Home`, and `End` for longer lists.
+
+On Linux, compatible evdev controllers are discovered by capabilities rather than fixed `/dev/input/event*` paths. Hotplug and multiple connected controllers are supported, and held D-Pad / left-stick navigation accelerates automatically. Search remains keyboard-driven.
+
+**Index** uses only first-character buckets that exist in the current list. `[` / `]` or LT / RT cycle through them with wraparound; `Enter` / A confirms the jump, while `Esc` / B cancels and restores the original position.
 
 ## Setup
 
@@ -174,7 +181,7 @@ The two primary Arcade fields are deliberately neutral:
 
 ```text
 EMULATOR EXECUTABLE
-ROM PATH
+PRIMARY ROM PATH
 ```
 
 The current automatic driver is MAME, but the executable + ROM-path relationship is intentionally reusable for future command-line emulator drivers.
@@ -184,6 +191,10 @@ Configuration is stored at:
 ```text
 ~/.config/marchine/config.toml
 ```
+
+The Info screen also contains **Quick Settings** for **Fullscreen on Launch** and **Hide Non-Arcade**. Both can be changed with keyboard or controller input and persist to the same config file.
+
+**Fullscreen on Launch controls Marchine itself.** On the next desktop launch it chooses between the normal Foot window and Foot fullscreen mode. It does not change MAME's fullscreen/window settings.
 
 You can create a starter configuration explicitly with:
 
@@ -211,6 +222,7 @@ If a local CatVer file is available, it can be configured explicitly or discover
 - **Go**
 - **Bubble Tea**
 - **Lip Gloss**
+- **go-evdev** for native Linux controller input
 - **MAME** for the current automatic Arcade driver
 - **TOML** for local configuration
 - optional **CatVer** for local category metadata
@@ -222,7 +234,7 @@ The interface is a native terminal UI. There is no Electron shell, browser rende
 Requirements:
 
 - Linux
-- Go 1.23.2+
+- Go **1.26 or newer**
 - Git
 - `make`
 
@@ -247,11 +259,20 @@ marchine
 
 Marchine vendors its Go dependencies, so normal build and test targets can use the committed dependency snapshot.
 
+### Desktop launch behavior
+
+The packaged Linux desktop entry and the local Foot template both use `marchine --desktop`. Marchine reads its config before creating the Foot window, allowing **Fullscreen on Launch** to choose between the normal desktop window and Foot fullscreen mode.
+
+Running `marchine` directly inside an existing terminal remains supported and bypasses the desktop bootstrap. Marchine never changes MAME fullscreen/window settings.
+
+An optional Omarchy/Hyprland floating-window example is provided at `packaging/omarchy/marchine.lua`. Packaging does not modify the user's compositor configuration.
+
 ## Project structure
 
 ```text
 cmd/marchine/        program entry point and CLI flags
 internal/config/     TOML configuration and path handling
+internal/gamepad/    Linux evdev discovery, normalization and repeat handling
 internal/library/    normalized launchable game model
 internal/mame/       MAME indexing, local metadata and Arcade cache
 internal/ui/         Bubble Tea model, views, themes and terminal sculpture

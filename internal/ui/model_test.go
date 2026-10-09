@@ -9,6 +9,7 @@ import (
 	"charm.land/lipgloss/v2"
 
 	"github.com/magik23/marchine/internal/config"
+	"github.com/magik23/marchine/internal/gamepad"
 	"github.com/magik23/marchine/internal/library"
 )
 
@@ -67,7 +68,7 @@ func TestInfoAndCreditsAreSeparateScreens(t *testing.T) {
 	cfg := config.Default()
 	m := NewModel(cfg, "", false, true)
 	info := m.renderInfo(120, 36)
-	for _, want := range []string{"HOW IT WORKS", "SHORTCUTS", "EMULATOR MODEL", "O", "Credits", "ARCADE FILTER", "HIDE NON-ARCADE"} {
+	for _, want := range []string{"HOW IT WORKS", "SHORTCUTS", "EMULATOR MODEL", "O", "Credits", "QUICK SETTINGS", "FULLSCREEN ON LAUNCH", "HIDE NON-ARCADE"} {
 		if !strings.Contains(info, want) {
 			t.Fatalf("Info screen missing %q", want)
 		}
@@ -123,12 +124,12 @@ func TestFrontFooterOmitsSecondaryCommands(t *testing.T) {
 	m := NewModel(cfg, "", false, true)
 	m.source = library.SourceArcade
 	footer := m.renderFooter(180)
-	for _, forbidden := range []string{"NAV", "REINDEX", "ROTATE", "THEME", "QUIT", "SETUP", "FILTER", "MARCHINE // GAME MACHINERY"} {
+	for _, forbidden := range []string{"NAV", "REINDEX", "ROTATE", "THEME", "QUIT", "FILTER", "MARCHINE // GAME MACHINERY"} {
 		if strings.Contains(footer, forbidden) {
 			t.Fatalf("front footer exposed %q: %q", forbidden, footer)
 		}
 	}
-	for _, want := range []string{"SEARCH", "SOURCE", "CATEGORIES", "PLAY", "INFO", "CREDITS"} {
+	for _, want := range []string{"SEARCH", "SOURCE", "CATEGORIES", "PLAY", "SETUP", "INFO", "CREDITS"} {
 		if !strings.Contains(footer, want) {
 			t.Fatalf("front footer missing %q: %q", want, footer)
 		}
@@ -658,5 +659,83 @@ func TestSetupNormalizesRuntimeLaunchPathsImmediately(t *testing.T) {
 		if m.arcade[0].Args[i] != wantArgs[i] {
 			t.Fatalf("in-memory Arcade args=%#v want=%#v", m.arcade[0].Args, wantArgs)
 		}
+	}
+}
+
+func TestInfoQuickSettingsKeyboardAndGamepad(t *testing.T) {
+	cfg := config.Default()
+	m := NewModel(cfg, "", false, true)
+	m.source = library.SourceArcade
+	m.width = 140
+	m.height = 52
+
+	next, _ := m.Update(tea.KeyPressMsg(tea.Key{Code: 'i', Text: "i"}))
+	m = next.(Model)
+	if m.screen != screenInfo {
+		t.Fatalf("I should open Info, screen=%v", m.screen)
+	}
+	if m.infoSetting != infoSettingFullscreen {
+		t.Fatalf("Info should start on Fullscreen, setting=%d", m.infoSetting)
+	}
+
+	next, _ = m.Update(tea.KeyPressMsg(tea.Key{Code: tea.KeyEnter}))
+	m = next.(Model)
+	if !m.cfg.Fullscreen {
+		t.Fatal("Enter should turn Fullscreen On Launch ON")
+	}
+
+	next, _ = m.Update(GamepadMsg{Action: gamepad.ActionDown})
+	m = next.(Model)
+	if m.infoSetting != infoSettingHideNonArcade {
+		t.Fatalf("controller Down should select Hide Non-Arcade, setting=%d", m.infoSetting)
+	}
+
+	next, _ = m.Update(GamepadMsg{Action: gamepad.ActionConfirm})
+	m = next.(Model)
+	if m.cfg.Arcade.HideJunk {
+		t.Fatal("controller A should turn Hide Non-Arcade OFF")
+	}
+
+	next, _ = m.Update(GamepadMsg{Action: gamepad.ActionUp})
+	m = next.(Model)
+	if m.infoSetting != infoSettingFullscreen {
+		t.Fatalf("controller Up should select Fullscreen On Launch, setting=%d", m.infoSetting)
+	}
+
+	next, _ = m.Update(GamepadMsg{Action: gamepad.ActionConfirm})
+	m = next.(Model)
+	if m.cfg.Fullscreen {
+		t.Fatal("controller A should turn Fullscreen On Launch OFF")
+	}
+
+	next, _ = m.Update(GamepadMsg{Action: gamepad.ActionBack})
+	m = next.(Model)
+	if m.screen != screenLibrary {
+		t.Fatalf("controller B should return from Info, screen=%v", m.screen)
+	}
+}
+
+func TestFullscreenQuickSettingPersists(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "config.toml")
+	cfg := config.Default()
+	cfg.Arcade.Enabled = false
+
+	m := NewModel(cfg, path, false, false)
+	m.width = 140
+	m.height = 52
+	m.openInfo()
+
+	next, _ := m.Update(tea.KeyPressMsg(tea.Key{Code: tea.KeyEnter}))
+	m = next.(Model)
+	if !m.cfg.Fullscreen {
+		t.Fatal("Fullscreen On Launch should be ON in memory")
+	}
+
+	saved, err := config.Load(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !saved.Fullscreen {
+		t.Fatal("Fullscreen On Launch was not persisted")
 	}
 }

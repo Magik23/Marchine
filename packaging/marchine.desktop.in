@@ -3,7 +3,7 @@ Type=Application
 Name=Marchine
 Comment=Game Machinery
 TryExec=foot
-Exec=foot --app-id=marchine --override=colors-dark.alpha=0.98 -e "@MARCHINE_BIN@"
+Exec="@MARCHINE_BIN@" --desktop
 Terminal=false
 Categories=Game;Emulator;
 Keywords=MAME;Arcade;Terminal;

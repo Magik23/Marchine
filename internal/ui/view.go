@@ -114,11 +114,24 @@ func composePage(parts []string, targetHeight int) string {
 
 	upper := strings.Join(parts[:len(parts)-1], "\n")
 	footer := parts[len(parts)-1]
-	used := lipgloss.Height(upper) + 1 + lipgloss.Height(footer)
+
+	// The footer owns the final rows of the viewport. If the content above it
+	// grows beyond the available space, trim the upper content instead of
+	// allowing frameViewport to clip the footer.
+	footerH := lipgloss.Height(footer)
+	maxUpperH := max(0, targetHeight-footerH-1)
+
+	if lipgloss.Height(upper) > maxUpperH {
+		lines := strings.Split(upper, "\n")
+		if len(lines) > maxUpperH {
+			lines = lines[:maxUpperH]
+		}
+		upper = strings.Join(lines, "\n")
+	}
+
+	used := lipgloss.Height(upper) + 1 + footerH
 
 	if used < targetHeight {
-		// Put any renderer rounding/slack immediately before the footer rather
-		// than below it. The visible page baseline therefore stays invariant.
 		upper += strings.Repeat("\n", targetHeight-used)
 	}
 
@@ -576,28 +589,40 @@ func (m Model) renderSearch(width int) string {
 	textStyle := lipgloss.NewStyle().
 		Foreground(t.Text)
 
+	muted := lipgloss.NewStyle().
+		Foreground(t.Muted)
+
+	accent := lipgloss.NewStyle().
+		Foreground(t.Accent).
+		Bold(true)
+
 	cursorStyle := lipgloss.NewStyle().
 		Foreground(t.Accent).
 		Bold(true)
 
-	q := m.search
+	var inside string
 
-	if q == "" {
-		q = "search…"
+	if m.letterJump != "" {
+		inside = promptStyle.Render("INDEX · ") +
+			accent.Render(m.letterJump)
+	} else {
+		q := m.search
 
-		textStyle = lipgloss.NewStyle().
-			Foreground(t.Muted)
+		if q == "" {
+			q = "search…"
+			textStyle = muted
+		}
+
+		cursor := ""
+
+		if m.searchMode {
+			cursor = cursorStyle.Render("▌")
+		}
+
+		inside = promptStyle.Render("/ ") +
+			textStyle.Render(q) +
+			cursor
 	}
-
-	cursor := ""
-
-	if m.searchMode {
-		cursor = cursorStyle.Render("▌")
-	}
-
-	inside := promptStyle.Render("/ ") +
-		textStyle.Render(q) +
-		cursor
 
 	insideW := max(8, width-2)
 
@@ -1048,6 +1073,7 @@ func (m Model) renderFooter(width int) string {
 
 	full = append(
 		full,
+		item("S", "SETUP"),
 		item("I", "INFO"),
 		credits,
 	)
@@ -1057,6 +1083,7 @@ func (m Model) renderFooter(width int) string {
 	medium := []string{
 		item("ENTER", "PLAY"),
 		item("/", "SEARCH"),
+		item("S", "SETUP"),
 		item("I", "INFO"),
 		credits,
 	}
@@ -1450,8 +1477,9 @@ func (m Model) renderInfo(width, height int) string {
 		Foreground(t.Accent).
 		Bold(true)
 
-	accent2 := lipgloss.NewStyle().
-		Foreground(t.Accent2).
+	selected := lipgloss.NewStyle().
+		Foreground(t.SelectText).
+		Background(t.Selection).
 		Bold(true)
 
 	text := lipgloss.NewStyle().
@@ -1470,26 +1498,42 @@ func (m Model) renderInfo(width, height int) string {
 
 	emu := "The setup field is deliberately called EMULATOR EXECUTABLE. The current automatic Arcade driver is MAME, but the executable + ROM-path model is intentionally reusable for future command-line emulator drivers.\n\nMarchine keeps MAME's local category metadata and filters the installed library without becoming an emulator encyclopedia."
 
-	shortcuts := "Enter         Launch\n/             Search\nTab           Games / Arcade\nC             Categories (Arcade)\nR             Refresh Arcade Library\nS             Setup\nI             Info\nO             Credits\nEsc / I       Return from Info"
+	shortcuts := "↑ / ↓         Navigate\nEnter         Launch / Apply\nEsc           Back / Cancel\n/             Search\n[ / ]         Index\nTab           Games / Arcade\nC             Categories\nR             Refresh Arcade Library\nS             Setup\nH             Hide Non-Arcade\nT             Theme\nI             Info\nO             Credits"
 
-	toggleState := "OFF"
+	controller := "D-Pad / LS    Navigate\nA             Launch / Apply\nB             Back / Cancel\nLT / RT       Index\nLB / RB       Games / Arcade\nY             Categories\nMenu          Setup\nL3            Theme\nX / View      Info\nR3            Credits"
 
-	if m.cfg.Arcade.HideJunk {
-		toggleState = "ON"
+	stateLabel := func(on bool) string {
+		if on {
+			return "ON"
+		}
+		return "OFF"
 	}
 
-	filterLine := "H   HIDE NON-ARCADE   [ " +
-		toggleState +
-		" ]"
+	settingLine := func(index int, label string, on bool) string {
+		line := fmt.Sprintf("%-20s [ %s ]", label, stateLabel(on))
+		if m.infoSetting == index {
+			return selected.Render("> " + line)
+		}
+		return text.Render("  " + line)
+	}
 
-	filterHelp := "Casino, gambling, mahjong and other non-arcade entries are removed from the Arcade playlist and category menu when this is ON. The complete indexed library is preserved; turn it OFF to expose ALL and the non-arcade categories again."
-
-	filterBlock := accent.Render(
-		"ARCADE FILTER",
-	) + "\n\n" +
-		accent2.Render(filterLine) +
+	quickSettingsBlock := accent.Render("QUICK SETTINGS") +
 		"\n\n" +
-		muted.Render(filterHelp)
+		settingLine(
+			infoSettingFullscreen,
+			"FULLSCREEN ON LAUNCH",
+			m.cfg.Fullscreen,
+		) +
+		"\n" +
+		settingLine(
+			infoSettingHideNonArcade,
+			"HIDE NON-ARCADE",
+			m.cfg.Arcade.HideJunk,
+		) +
+		"\n\n" +
+		muted.Render(
+			"↑↓ / D-Pad / LS  Navigate\nEnter / A          Toggle",
+		)
 
 	if width >= 96 {
 		innerW := max(50, width-6)
@@ -1520,18 +1564,23 @@ func (m Model) renderInfo(width, height int) string {
 					section(
 						"EMULATOR MODEL",
 						emu,
-					),
+					) +
+					"\n\n" +
+					quickSettingsBlock,
 			)
 
 		right := lipgloss.NewStyle().
 			Width(rightW).
 			Render(
 				section(
-					"SHORTCUTS",
+					"KEYBOARD SHORTCUTS · FIXED",
 					shortcuts,
 				) +
 					"\n\n" +
-					filterBlock,
+					section(
+						"CONTROLLER · FIXED",
+						controller,
+					),
 			)
 
 		body := lipgloss.JoinHorizontal(
@@ -1553,10 +1602,14 @@ func (m Model) renderInfo(width, height int) string {
 			emu,
 		) + "\n\n" +
 		section(
-			"SHORTCUTS",
+			"KEYBOARD SHORTCUTS · FIXED",
 			shortcuts,
 		) + "\n\n" +
-		filterBlock
+		section(
+			"CONTROLLER · FIXED",
+			controller,
+		) + "\n\n" +
+		quickSettingsBlock
 
 	return panel.Render(body)
 }
