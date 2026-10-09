@@ -1,5 +1,8 @@
 # Changelog
 
+## 1.23.1
+- Fixed Staticcheck S1002 warnings in the new gamepad input code so the release workflow passes security/static-analysis validation.
+
 ## 1.23.0
 - Added native Linux gamepad support using evdev, with capability-based device discovery, hotplug handling, multiple-controller support, and accelerated held navigation.
 - Added fixed controller mappings for launch/back, source switching, Index, Categories, Setup, Theme, Info, and Credits; Search remains keyboard-driven.
