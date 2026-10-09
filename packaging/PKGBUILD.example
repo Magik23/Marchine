@@ -1,7 +1,7 @@
 # Maintainer: Pierre Dionne <hello@albenoir.com>
 # Production AUR template.
 # Generate packaging/PKGBUILD (and .SRCINFO when makepkg is available) with:
-#   ./packaging/finalize-aur.sh 1.22.1
+#   ./packaging/finalize-aur.sh 1.23.0
 #
 # The version and checksum placeholders below are replaced by finalize-aur.sh
 # after the release tag exists. Never submit this template itself to the AUR.

@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 1.23.0
 - Added native Linux gamepad support using evdev, with capability-based device discovery, hotplug handling, multiple-controller support, and accelerated held navigation.
 - Added fixed controller mappings for launch/back, source switching, Index, Categories, Setup, Theme, Info, and Credits; Search remains keyboard-driven.
 - Added Index jumping with available first-character buckets, wraparound navigation, confirm, and cancel/restore behavior.

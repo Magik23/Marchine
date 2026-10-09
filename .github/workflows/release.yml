@@ -29,7 +29,9 @@ jobs:
           cache: false
 
       - name: Verify source
-        run: make check
+        run: |
+          make check
+          git diff --check
 
       - name: Install pinned analyzers
         run: |

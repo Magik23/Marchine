@@ -5,7 +5,7 @@ cd "$(dirname "${BASH_SOURCE[0]}")/.."
 
 usage() {
   printf 'Usage: %s VERSION\n' "$0" >&2
-  printf 'Example: %s 1.22.0\n' "$0" >&2
+  printf 'Example: %s 1.23.0\n' "$0" >&2
   exit 2
 }
 
