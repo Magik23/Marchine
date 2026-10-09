@@ -25,12 +25,17 @@ build() {
 
   export GOTOOLCHAIN=local
   export GOPROXY=off
-  CGO_ENABLED=0 go build \
+  export CGO_ENABLED=1
+  export CGO_CPPFLAGS="${CPPFLAGS}"
+  export CGO_CFLAGS="${CFLAGS}"
+  export CGO_CXXFLAGS="${CXXFLAGS}"
+  export CGO_LDFLAGS="${LDFLAGS}"
+  go build \
     -mod=vendor \
     -trimpath \
     -buildvcs=false \
     -buildmode=pie \
-    -ldflags "-X main.version=$pkgver" \
+    -ldflags "-linkmode external -extldflags \"${LDFLAGS}\" -X main.version=$pkgver" \
     -o marchine \
     ./cmd/marchine
 }
@@ -40,6 +45,11 @@ check() {
 
   export GOTOOLCHAIN=local
   export GOPROXY=off
+  export CGO_ENABLED=1
+  export CGO_CPPFLAGS="${CPPFLAGS}"
+  export CGO_CFLAGS="${CFLAGS}"
+  export CGO_CXXFLAGS="${CXXFLAGS}"
+  export CGO_LDFLAGS="${LDFLAGS}"
 
   unformatted="$(gofmt -l $(find cmd internal -name '*.go' -type f))"
   if [[ -n "$unformatted" ]]; then
