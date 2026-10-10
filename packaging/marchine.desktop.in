@@ -2,6 +2,7 @@
 Type=Application
 Name=Marchine
 Comment=Game Machinery
+Icon=marchine
 TryExec=foot
 Exec="@MARCHINE_BIN@" --desktop
 Terminal=false

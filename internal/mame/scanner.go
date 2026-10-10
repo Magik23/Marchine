@@ -65,6 +65,9 @@ type machineXML struct {
 	Driver       struct {
 		Status string `xml:"status,attr"`
 	} `xml:"driver"`
+	Displays []struct {
+		Rotate string `xml:"rotate,attr"`
+	} `xml:"display"`
 }
 
 func Load(cfg config.ArcadeConfig, force bool) (Result, error) {
@@ -465,6 +468,7 @@ func parseInstalledMachines(
 		rawCategory := strings.TrimSpace(cat)
 		browseCategory := BrowseCategory(rawCategory, mx.Description)
 		nonArcade := IsNonArcade(rawCategory, mx.Description)
+		vertical := isVerticalMachine(mx)
 
 		games = append(games, library.Game{
 			ID:           "mame:" + name,
@@ -475,6 +479,7 @@ func parseInstalledMachines(
 			Category:     browseCategory,
 			RawCategory:  rawCategory,
 			NonArcade:    nonArcade,
+			Vertical:     vertical,
 			ROM:          name,
 			Command:      mamePath,
 			Args:         LaunchArgs(name, cfg.ROMPaths),
@@ -507,6 +512,16 @@ func terminateProcess(cmd *exec.Cmd) {
 	}
 	_ = cmd.Process.Kill()
 	_ = cmd.Wait()
+}
+
+func isVerticalMachine(mx machineXML) bool {
+	for _, display := range mx.Displays {
+		switch strings.TrimSpace(display.Rotate) {
+		case "90", "270":
+			return true
+		}
+	}
+	return false
 }
 
 func truthy(v string) bool {

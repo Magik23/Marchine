@@ -16,6 +16,7 @@ type Game struct {
 	Category     string
 	RawCategory  string
 	NonArcade    bool
+	Vertical     bool
 	ROM          string
 	Command      string
 	Args         []string

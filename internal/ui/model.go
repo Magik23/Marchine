@@ -38,6 +38,7 @@ const (
 const (
 	filterAll       = "ALL"
 	filterArcade    = "ARCADE ONLY"
+	filterVertical  = "VERTICAL"
 	filterNonArcade = "NON - ARCADE"
 )
 
@@ -771,8 +772,12 @@ func (m Model) filters() []string {
 
 	seen := map[string]bool{}
 	arcadeSeen := map[string]bool{}
+	hasVertical := false
 	hasNonArcade := false
 	for _, g := range m.arcade {
+		if g.Vertical && (!m.cfg.Arcade.HideJunk || !g.NonArcade) {
+			hasVertical = true
+		}
 		if g.Category != "" {
 			seen[g.Category] = true
 			if !g.NonArcade {
@@ -818,6 +823,11 @@ func (m Model) filters() []string {
 	}
 	sort.Strings(extra)
 	out = append(out, extra...)
+
+	if hasVertical {
+		out = append(out, filterVertical)
+	}
+
 	if !m.cfg.Arcade.HideJunk && hasNonArcade {
 		out = append(out, filterNonArcade)
 	}
@@ -833,6 +843,8 @@ func matchesArcadeFilter(g library.Game, filter string, hideNonArcade bool) bool
 		return true
 	case filterArcade:
 		return !g.NonArcade
+	case filterVertical:
+		return g.Vertical
 	case filterNonArcade:
 		return g.NonArcade
 	default:
