@@ -1,6 +1,7 @@
 # Changelog
 
 ## Unreleased
+- Improved Arcade list navigation by keeping the selection around three-fifths down the viewport during long scrolling, preserving visibility of upcoming games.
 - Restored the Marchine icon in the local desktop launcher installed by the source installer.
 - Added a VERTICAL Arcade category filter using MAME display-orientation metadata without changing MAME launch or rotation behavior.
 - Removed automatic `-autorol` injection for vertical MAME games so display orientation and rotation remain entirely under MAME's own configuration.
