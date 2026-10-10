@@ -47,7 +47,16 @@ func main() {
 		if err := ensureStarterConfig(path); err != nil {
 			fatal(err)
 		}
+
 		fmt.Println(path)
+		return
+	}
+
+	if *desktop {
+		if err := launchDesktop(path); err != nil {
+			fatal(err)
+		}
+
 		return
 	}
 
@@ -56,17 +65,11 @@ func main() {
 		fatal(err)
 	}
 
-	if *desktop {
-		if err := launchDesktop(cfg, path); err != nil {
-			fatal(err)
-		}
-		return
-	}
-
 	if *doctor {
 		if err := runDoctor(cfg, *rescan, path); err != nil {
 			fatal(err)
 		}
+
 		return
 	}
 
@@ -81,24 +84,28 @@ func main() {
 	}
 }
 
-func launchDesktop(cfg config.Config, configPath string) error {
+func launchDesktop(configPath string) error {
 	self, err := os.Executable()
 	if err != nil {
 		return fmt.Errorf("locate Marchine executable: %w", err)
 	}
 
-	cmd := exec.Command("foot", desktopFootArgs(self, configPath, cfg.Fullscreen)...)
+	cmd := exec.Command("foot", desktopFootArgs(self, configPath)...)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	return cmd.Run()
 }
 
-func desktopFootArgs(self, configPath string, fullscreen bool) []string {
-	args := []string{"--app-id=marchine", "--override=colors-dark.alpha=0.98"}
-	if fullscreen {
-		args = append(args, "--fullscreen")
+func desktopFootArgs(self, configPath string) []string {
+	return []string{
+		"--app-id=marchine",
+		"--override=colors-dark.alpha=0.98",
+		"--fullscreen",
+		"-e",
+		self,
+		"--config",
+		configPath,
 	}
-	return append(args, "-e", self, "--config", configPath)
 }
 
 func fatal(err error) {
@@ -155,9 +162,6 @@ const starterConfig = `# MARCHINE — Game Machinery.
 
 theme = "violet"
 startup_source = "arcade"
-
-# Marchine window mode. false = normal window, true = fullscreen on launch.
-fullscreen = false
 
 [arcade]
 enabled = true

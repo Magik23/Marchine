@@ -51,16 +51,22 @@ func TestGamesRemainFlat(t *testing.T) {
 	}
 }
 
-func TestCompactFooterKeepsInfoEscapeHatch(t *testing.T) {
+func TestCompactFooterKeepsInfoAndQuitEscapeHatches(t *testing.T) {
 	cfg := config.Default()
 	m := NewModel(cfg, "", false, true)
 	m.source = library.SourceArcade
 	footer := m.renderFooter(46)
-	if !strings.Contains(footer, "I") || !strings.Contains(footer, "INFO") {
-		t.Fatalf("compact footer lost Info shortcut: %q", footer)
+
+	for _, want := range []string{"I", "INFO", "Q", "QUIT"} {
+		if !strings.Contains(footer, want) {
+			t.Fatalf("compact footer lost %q: %q", want, footer)
+		}
 	}
-	if strings.Contains(footer, "THEME") || strings.Contains(footer, "REINDEX") {
-		t.Fatalf("compact footer kept secondary controls instead of collapsing: %q", footer)
+
+	for _, forbidden := range []string{"THEME", "REINDEX", "SETUP", "CREDITS"} {
+		if strings.Contains(footer, forbidden) {
+			t.Fatalf("compact footer kept secondary control %q: %q", forbidden, footer)
+		}
 	}
 }
 
@@ -68,18 +74,39 @@ func TestInfoAndCreditsAreSeparateScreens(t *testing.T) {
 	cfg := config.Default()
 	m := NewModel(cfg, "", false, true)
 	info := m.renderInfo(120, 36)
-	for _, want := range []string{"HOW IT WORKS", "SHORTCUTS", "EMULATOR MODEL", "O", "Credits", "QUICK SETTINGS", "FULLSCREEN ON LAUNCH", "HIDE NON-ARCADE"} {
+
+	for _, want := range []string{
+		"HOW IT WORKS",
+		"SHORTCUTS",
+		"EMULATOR MODEL",
+		"O",
+		"Credits",
+		"QUICK SETTING",
+		"HIDE NON-ARCADE",
+	} {
 		if !strings.Contains(info, want) {
 			t.Fatalf("Info screen missing %q", want)
 		}
 	}
-	for _, forbidden := range []string{"Pierre Dionne", "Albenoir Studio", "CREDITS\n"} {
+
+	for _, forbidden := range []string{
+		"Pierre Dionne",
+		"Albenoir Studio",
+		"CREDITS\n",
+		"FULLSCREEN",
+	} {
 		if strings.Contains(info, forbidden) {
 			t.Fatalf("Info screen still contains credit material %q", forbidden)
 		}
 	}
+
 	credits := m.renderCredits(160, 48)
-	for _, want := range []string{"CREDITS", "Pierre Dionne", "Albenoir Studio", "MARCHINE — Game Machinery."} {
+	for _, want := range []string{
+		"CREDITS",
+		"Pierre Dionne",
+		"Albenoir Studio",
+		"MARCHINE — Game Machinery.",
+	} {
 		if !strings.Contains(credits, want) {
 			t.Fatalf("Credits screen missing %q", want)
 		}
@@ -119,17 +146,35 @@ func TestDetailNeverExposesRawLaunchCommand(t *testing.T) {
 	}
 }
 
-func TestFrontFooterOmitsSecondaryCommands(t *testing.T) {
+func TestFrontFooterKeepsPrimaryActionsOnly(t *testing.T) {
 	cfg := config.Default()
 	m := NewModel(cfg, "", false, true)
 	m.source = library.SourceArcade
 	footer := m.renderFooter(180)
-	for _, forbidden := range []string{"NAV", "REINDEX", "ROTATE", "THEME", "QUIT", "FILTER", "MARCHINE // GAME MACHINERY"} {
+
+	for _, forbidden := range []string{
+		"NAV",
+		"REINDEX",
+		"ROTATE",
+		"THEME",
+		"FILTER",
+		"SETUP",
+		"CREDITS",
+		"MARCHINE // GAME MACHINERY",
+	} {
 		if strings.Contains(footer, forbidden) {
-			t.Fatalf("front footer exposed %q: %q", forbidden, footer)
+			t.Fatalf("front footer exposed secondary command %q: %q", forbidden, footer)
 		}
 	}
-	for _, want := range []string{"SEARCH", "SOURCE", "CATEGORIES", "PLAY", "SETUP", "INFO", "CREDITS"} {
+
+	for _, want := range []string{
+		"SEARCH",
+		"SOURCE",
+		"CATEGORIES",
+		"PLAY",
+		"INFO",
+		"QUIT",
+	} {
 		if !strings.Contains(footer, want) {
 			t.Fatalf("front footer missing %q: %q", want, footer)
 		}
@@ -326,13 +371,14 @@ func TestWideCreditsPlaceASCIIBesideCopy(t *testing.T) {
 	t.Fatalf("wide CREDITS did not place current credit ASCII beside credit copy")
 }
 
-func TestFrontFooterCreditsIsLastItem(t *testing.T) {
+func TestFrontFooterQuitIsLastItem(t *testing.T) {
 	cfg := config.Default()
 	m := NewModel(cfg, "", false, true)
 	m.source = library.SourceArcade
 	footer := ansiEscape.ReplaceAllString(m.renderFooter(180), "")
-	if !strings.HasSuffix(strings.TrimSpace(footer), "O CREDITS") {
-		t.Fatalf("credits should be the final front-menu item: %q", footer)
+
+	if !strings.HasSuffix(strings.TrimSpace(footer), "Q QUIT") {
+		t.Fatalf("quit should be the final front-menu item: %q", footer)
 	}
 }
 
@@ -457,7 +503,7 @@ func TestAllScreensRemainUsableAtMinimumGeometry(t *testing.T) {
 		mode screenMode
 		want string
 	}{
-		{"library", screenLibrary, "O CREDITS"},
+		{"library", screenLibrary, "Q QUIT"},
 		{"info", screenInfo, "O CREDITS"},
 		{"credits", screenCredits, "I INFO"},
 		{"categories", screenCategories, "ENTER APPLY"},
@@ -662,7 +708,7 @@ func TestSetupNormalizesRuntimeLaunchPathsImmediately(t *testing.T) {
 	}
 }
 
-func TestInfoQuickSettingsKeyboardAndGamepad(t *testing.T) {
+func TestInfoQuickSettingKeyboardAndGamepad(t *testing.T) {
 	cfg := config.Default()
 	m := NewModel(cfg, "", false, true)
 	m.source = library.SourceArcade
@@ -671,51 +717,34 @@ func TestInfoQuickSettingsKeyboardAndGamepad(t *testing.T) {
 
 	next, _ := m.Update(tea.KeyPressMsg(tea.Key{Code: 'i', Text: "i"}))
 	m = next.(Model)
+
 	if m.screen != screenInfo {
 		t.Fatalf("I should open Info, screen=%v", m.screen)
-	}
-	if m.infoSetting != infoSettingFullscreen {
-		t.Fatalf("Info should start on Fullscreen, setting=%d", m.infoSetting)
 	}
 
 	next, _ = m.Update(tea.KeyPressMsg(tea.Key{Code: tea.KeyEnter}))
 	m = next.(Model)
-	if !m.cfg.Fullscreen {
-		t.Fatal("Enter should turn Fullscreen On Launch ON")
-	}
 
-	next, _ = m.Update(GamepadMsg{Action: gamepad.ActionDown})
-	m = next.(Model)
-	if m.infoSetting != infoSettingHideNonArcade {
-		t.Fatalf("controller Down should select Hide Non-Arcade, setting=%d", m.infoSetting)
-	}
-
-	next, _ = m.Update(GamepadMsg{Action: gamepad.ActionConfirm})
-	m = next.(Model)
 	if m.cfg.Arcade.HideJunk {
-		t.Fatal("controller A should turn Hide Non-Arcade OFF")
-	}
-
-	next, _ = m.Update(GamepadMsg{Action: gamepad.ActionUp})
-	m = next.(Model)
-	if m.infoSetting != infoSettingFullscreen {
-		t.Fatalf("controller Up should select Fullscreen On Launch, setting=%d", m.infoSetting)
+		t.Fatal("Enter should turn Hide Non-Arcade OFF")
 	}
 
 	next, _ = m.Update(GamepadMsg{Action: gamepad.ActionConfirm})
 	m = next.(Model)
-	if m.cfg.Fullscreen {
-		t.Fatal("controller A should turn Fullscreen On Launch OFF")
+
+	if !m.cfg.Arcade.HideJunk {
+		t.Fatal("controller A should turn Hide Non-Arcade ON")
 	}
 
 	next, _ = m.Update(GamepadMsg{Action: gamepad.ActionBack})
 	m = next.(Model)
+
 	if m.screen != screenLibrary {
 		t.Fatalf("controller B should return from Info, screen=%v", m.screen)
 	}
 }
 
-func TestFullscreenQuickSettingPersists(t *testing.T) {
+func TestHideNonArcadeQuickSettingPersists(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "config.toml")
 	cfg := config.Default()
 	cfg.Arcade.Enabled = false
@@ -727,15 +756,84 @@ func TestFullscreenQuickSettingPersists(t *testing.T) {
 
 	next, _ := m.Update(tea.KeyPressMsg(tea.Key{Code: tea.KeyEnter}))
 	m = next.(Model)
-	if !m.cfg.Fullscreen {
-		t.Fatal("Fullscreen On Launch should be ON in memory")
+
+	if m.cfg.Arcade.HideJunk {
+		t.Fatal("Hide Non-Arcade should be OFF in memory")
 	}
 
 	saved, err := config.Load(path)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !saved.Fullscreen {
-		t.Fatal("Fullscreen On Launch was not persisted")
+
+	if saved.Arcade.HideJunk {
+		t.Fatal("Hide Non-Arcade OFF was not persisted")
+	}
+}
+
+func TestQuitIsAvailableFromSetupAndController(t *testing.T) {
+	m := NewModel(config.Default(), "", false, true)
+	m.width = minTerminalWidth
+	m.height = minTerminalHeight
+	m.openSetup()
+
+	_, cmd := m.Update(tea.KeyPressMsg(tea.Key{Code: 'q', Text: "q"}))
+	if cmd == nil {
+		t.Fatal("Q should quit from Setup when not editing a field")
+	}
+	if _, ok := cmd().(tea.QuitMsg); !ok {
+		t.Fatal("Q did not return a Bubble Tea quit message")
+	}
+
+	m = NewModel(config.Default(), "", false, true)
+	m.width = minTerminalWidth - 1
+	m.height = minTerminalHeight
+
+	_, cmd = m.Update(GamepadMsg{Action: gamepad.ActionQuit})
+	if cmd == nil {
+		t.Fatal("controller quit chord should work even below minimum geometry")
+	}
+	if _, ok := cmd().(tea.QuitMsg); !ok {
+		t.Fatal("controller quit action did not return a Bubble Tea quit message")
+	}
+}
+
+func TestInfoDocumentsQuitControls(t *testing.T) {
+	m := NewModel(config.Default(), "", false, true)
+	info := ansiEscape.ReplaceAllString(m.renderInfo(140, 52), "")
+	normalized := strings.Join(strings.Fields(info), " ")
+
+	for _, want := range []string{
+		"Q Quit",
+		"X Info",
+		"View + Menu Quit",
+	} {
+		if !strings.Contains(normalized, want) {
+			t.Fatalf("Info screen missing control %q", want)
+		}
+	}
+
+	if strings.Contains(normalized, "X / View") {
+		t.Fatalf("Info screen still documents redundant View-to-Info mapping: %q", info)
+	}
+}
+
+func TestViewActionIsChordOnly(t *testing.T) {
+	m := NewModel(config.Default(), "", false, true)
+	m.width = minTerminalWidth
+	m.height = minTerminalHeight
+
+	next, cmd := m.Update(GamepadMsg{Action: gamepad.ActionView})
+	m = next.(Model)
+
+	if cmd != nil {
+		t.Fatal("View alone should not produce a UI command")
+	}
+
+	if m.screen != screenLibrary {
+		t.Fatalf(
+			"View alone should leave the library unchanged, screen=%v",
+			m.screen,
+		)
 	}
 }

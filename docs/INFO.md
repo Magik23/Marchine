@@ -8,7 +8,7 @@ INFO contains:
 
 - **HOW IT WORKS** — GAMES, ARCADE, and process handoff;
 - **EMULATOR MODEL** — why the UI says Emulator Executable while the current automatic Arcade driver is MAME;
-- **SHORTCUTS** — the complete keyboard reference;
+- **SHORTCUTS** — the complete keyboard and controller reference; `X` opens Info, while `View` is reserved for the `View + Menu` quit chord;
 - **ARCADE FILTER** — `H` toggles **HIDE NON-ARCADE [ON/OFF]**.
 
 Hide Non-Arcade is presentation-only. The complete indexed runnable library remains cached; the toggle controls which entries/category families are exposed in the Arcade browser.

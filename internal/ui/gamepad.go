@@ -2,6 +2,7 @@ package ui
 
 import (
 	"strings"
+	"sync/atomic"
 	"unicode"
 	"unicode/utf8"
 
@@ -10,11 +11,25 @@ import (
 	"github.com/magik23/marchine/internal/gamepad"
 )
 
+var gamepadSuspended atomic.Bool
+
+func SetGamepadSuspended(suspended bool) {
+	gamepadSuspended.Store(suspended)
+}
+
+func GamepadSuspended() bool {
+	return gamepadSuspended.Load()
+}
+
 type GamepadMsg struct {
 	Action gamepad.Action
 }
 
 func (m Model) updateGamepad(action gamepad.Action) (tea.Model, tea.Cmd) {
+	if action == gamepad.ActionQuit {
+		return m, tea.Quit
+	}
+
 	if m.width > 0 && m.height > 0 && terminalTooSmall(m.width, m.height) {
 		return m, nil
 	}

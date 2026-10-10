@@ -70,6 +70,66 @@ type holdState struct {
 	next    time.Time
 }
 
+type quitChordState struct {
+	viewPressed  bool
+	setupPressed bool
+	consumed     bool
+}
+
+func (s *quitChordState) handle(action Action, pressed bool) (Action, bool) {
+	switch action {
+	case ActionView:
+		if pressed {
+			s.viewPressed = true
+			if s.setupPressed && !s.consumed {
+				s.consumed = true
+				return ActionQuit, true
+			}
+			return ActionNone, false
+		}
+
+		s.viewPressed = false
+		if s.consumed {
+			s.resetIfReleased()
+			return ActionNone, false
+		}
+		return ActionNone, false
+
+	case ActionSetup:
+		if pressed {
+			s.setupPressed = true
+			if s.viewPressed && !s.consumed {
+				s.consumed = true
+				return ActionQuit, true
+			}
+			return ActionNone, false
+		}
+
+		s.setupPressed = false
+		if s.consumed {
+			s.resetIfReleased()
+			return ActionNone, false
+		}
+		return ActionSetup, true
+	}
+
+	return ActionNone, false
+}
+
+func (s *quitChordState) resetIfReleased() {
+	if !s.viewPressed && !s.setupPressed {
+		s.consumed = false
+	}
+}
+
+func (s quitChordState) idle() bool {
+	return !s.viewPressed && !s.setupPressed && !s.consumed
+}
+
+func quitChordAction(action Action) bool {
+	return action == ActionView || action == ActionSetup
+}
+
 func (m *Manager) run() {
 	defer close(m.done)
 
@@ -81,6 +141,7 @@ func (m *Manager) run() {
 
 	live := make(map[string]*Reader)
 	held := make(map[heldKey]holdState)
+	quitChords := make(map[string]*quitChordState)
 
 	gone := make(chan readerExit, 64)
 	signals := make(chan inputSignal, 64)
@@ -91,6 +152,8 @@ func (m *Manager) run() {
 				delete(held, key)
 			}
 		}
+
+		delete(quitChords, path)
 	}
 
 	emit := func(device Device, action Action) bool {
@@ -171,6 +234,24 @@ func (m *Manager) run() {
 		case input := <-signals:
 			device := input.reader.Device()
 			action := input.signal.Action
+
+			if quitChordAction(action) {
+				state := quitChords[device.Path]
+				if state == nil {
+					state = &quitChordState{}
+					quitChords[device.Path] = state
+				}
+
+				output, ok := state.handle(action, input.signal.Pressed)
+				if state.idle() {
+					delete(quitChords, device.Path)
+				}
+
+				if ok && !emit(device, output) {
+					return
+				}
+				continue
+			}
 
 			key := heldKey{
 				path:   device.Path,

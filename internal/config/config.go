@@ -13,7 +13,6 @@ import (
 type Config struct {
 	Theme         string       `toml:"theme"`
 	StartupSource string       `toml:"startup_source"`
-	Fullscreen    bool         `toml:"fullscreen"`
 	Arcade        ArcadeConfig `toml:"arcade"`
 	Games         []GameConfig `toml:"games"`
 }

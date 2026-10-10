@@ -15,25 +15,35 @@ func TestEnsureStarterConfigCreatesAndPreservesExistingFile(t *testing.T) {
 	if err := ensureStarterConfig(path); err != nil {
 		t.Fatal(err)
 	}
+
 	b, err := os.ReadFile(path)
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	if !strings.Contains(string(b), "MARCHINE — Game Machinery.") {
 		t.Fatalf("starter config missing expected header: %q", string(b))
 	}
 
+	if strings.Contains(string(b), "fullscreen") {
+		t.Fatalf("starter config still exposes removed fullscreen preference: %q", string(b))
+	}
+
 	const custom = "theme = \"amber\"\n"
+
 	if err := os.WriteFile(path, []byte(custom), 0o644); err != nil {
 		t.Fatal(err)
 	}
+
 	if err := ensureStarterConfig(path); err != nil {
 		t.Fatal(err)
 	}
+
 	b, err = os.ReadFile(path)
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	if string(b) != custom {
 		t.Fatalf("existing config was overwritten: %q", string(b))
 	}
@@ -57,32 +67,12 @@ func TestRunDoctorFailsOnOperationalDiagnostic(t *testing.T) {
 	}
 }
 
-func TestDesktopFootArgsNormalWindow(t *testing.T) {
+func TestDesktopFootArgsFullscreenByDefault(t *testing.T) {
 	got := strings.Join(
-		desktopFootArgs("/tmp/marchine", "/tmp/config.toml", false),
+		desktopFootArgs("/tmp/marchine", "/tmp/config.toml"),
 		"\x00",
 	)
-	want := strings.Join(
-		[]string{
-			"--app-id=marchine",
-			"--override=colors-dark.alpha=0.98",
-			"-e",
-			"/tmp/marchine",
-			"--config",
-			"/tmp/config.toml",
-		},
-		"\x00",
-	)
-	if got != want {
-		t.Fatalf("normal desktop args=%q want=%q", got, want)
-	}
-}
 
-func TestDesktopFootArgsFullscreen(t *testing.T) {
-	got := strings.Join(
-		desktopFootArgs("/tmp/marchine", "/tmp/config.toml", true),
-		"\x00",
-	)
 	want := strings.Join(
 		[]string{
 			"--app-id=marchine",
@@ -95,7 +85,8 @@ func TestDesktopFootArgsFullscreen(t *testing.T) {
 		},
 		"\x00",
 	)
+
 	if got != want {
-		t.Fatalf("fullscreen desktop args=%q want=%q", got, want)
+		t.Fatalf("desktop args=%q want=%q", got, want)
 	}
 }

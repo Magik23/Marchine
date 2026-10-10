@@ -71,7 +71,7 @@ func (n *Normalizer) handleButton(code evdev.EvCode, value int32) (Signal, bool)
 	case evdev.BTN_EAST:
 		action = ActionBack
 
-	// Physical Xbox X. Intentionally unused for now.
+	// Physical Xbox X opens Info directly; View is tracked separately for the quit chord.
 	case evdev.BTN_NORTH:
 		action = ActionInfo
 
@@ -79,7 +79,7 @@ func (n *Normalizer) handleButton(code evdev.EvCode, value int32) (Signal, bool)
 		action = ActionCategories
 
 	case evdev.BTN_SELECT:
-		action = ActionInfo
+		action = ActionView
 
 	case evdev.BTN_START:
 		action = ActionSetup

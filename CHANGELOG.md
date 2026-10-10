@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+- Simplified desktop window behavior: `marchine --desktop` now always starts fullscreen through Foot, with no saved fullscreen preference or hard-coded 1180×900 default geometry.
+- Kept Hyprland return-focus handling after game exit while leaving user-chosen live window geometry to the compositor.
+- Preserve Hyprland compositor-fullscreen state across game launches without storing or restoring window geometry, restoring fullscreen before focus so the underlying floating size is not intentionally exposed on return.
+- Added an explicit controller quit chord (View + Menu); X remains Info, Menu remains Setup, and View is reserved as the quit-chord modifier.
+
 ## 1.23.1
 - Fixed Staticcheck S1002 warnings in the new gamepad input code so the release workflow passes security/static-analysis validation.
 

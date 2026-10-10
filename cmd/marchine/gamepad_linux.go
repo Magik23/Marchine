@@ -16,6 +16,13 @@ func startGamepads(p *tea.Program) func() {
 
 	go func() {
 		for event := range manager.Events() {
+			// Marchine must stay completely passive while a launched game owns
+			// the session. Keep draining evdev events so gameplay input never
+			// queues up and fires when Marchine resumes.
+			if ui.GamepadSuspended() {
+				continue
+			}
+
 			p.Send(ui.GamepadMsg{
 				Action: event.Action,
 			})

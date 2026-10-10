@@ -156,12 +156,14 @@ Marchine keeps setup, shortcuts, project information, and credits inside the TUI
 | `C` | Y | Categories |
 | `S` | Menu | Setup |
 | `T` | L3 | Theme |
-| `I` | X / View | Info |
+| `I` | X | Info |
 | `O` | R3 | Credits |
 | `/` | — | Search |
 | `R` | — | Refresh Arcade Library |
 | `H` | — | Hide Non-Arcade |
-| `Q` | — | Quit |
+| `Q` | View + Menu | Quit |
+
+View has no standalone action; it is reserved as the modifier for the `View + Menu` quit chord.
 
 Marchine also supports `PgUp`, `PgDown`, `Home`, and `End` for longer lists.
 
@@ -192,9 +194,7 @@ Configuration is stored at:
 ~/.config/marchine/config.toml
 ```
 
-The Info screen also contains **Quick Settings** for **Fullscreen on Launch** and **Hide Non-Arcade**. Both can be changed with keyboard or controller input and persist to the same config file.
-
-**Fullscreen on Launch controls Marchine itself.** On the next desktop launch it chooses between the normal Foot window and Foot fullscreen mode. It does not change MAME's fullscreen/window settings.
+The Info screen also contains a **Quick Setting** for **Hide Non-Arcade**. It can be changed with keyboard or controller input and persists to the same config file.
 
 You can create a starter configuration explicitly with:
 
@@ -261,11 +261,11 @@ Marchine vendors its Go dependencies, so normal build and test targets can use t
 
 ### Desktop launch behavior
 
-The packaged Linux desktop entry and the local Foot template both use `marchine --desktop`. Marchine reads its config before creating the Foot window, allowing **Fullscreen on Launch** to choose between the normal desktop window and Foot fullscreen mode.
+The packaged Linux desktop entry and the local Foot template both use `marchine --desktop`. Desktop launch opens Marchine fullscreen through Foot using the active monitor geometry. Marchine does not persist or manage a separate window-size preference.
 
-Running `marchine` directly inside an existing terminal remains supported and bypasses the desktop bootstrap. Marchine never changes MAME fullscreen/window settings.
+Users can leave fullscreen and resize or place the existing Marchine window through their desktop compositor. On Hyprland, Marchine remembers only whether its window was compositor-fullscreen immediately before a game launch: if it was fullscreen, that fullscreen state is restored when the game exits; if it was windowed, the user's live geometry is left untouched. Other compositors receive no Marchine-specific runtime window management. Running `marchine` directly inside an existing terminal remains supported and bypasses the desktop bootstrap. Marchine never changes MAME fullscreen/window settings.
 
-An optional Omarchy/Hyprland floating-window example is provided at `packaging/omarchy/marchine.lua`. Packaging does not modify the user's compositor configuration.
+An optional Omarchy/Hyprland rule is provided at `packaging/omarchy/marchine.lua` to give Marchine a monitor-sized floating backing window for clean fullscreen handoffs. Packaging does not modify the user's compositor configuration.
 
 ## Project structure
 

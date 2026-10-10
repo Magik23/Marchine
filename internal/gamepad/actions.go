@@ -13,11 +13,15 @@ const (
 
 	ActionConfirm
 	ActionBack
+	ActionQuit
 
 	ActionSearch
 
 	ActionCategories
 	ActionInfo
+
+	// View is chord-only: View + Menu quits; X remains the Info button.
+	ActionView
 	ActionSetup
 
 	ActionPreviousSource

@@ -19,7 +19,7 @@ func TestButtonMapping(t *testing.T) {
 		{evdev.BTN_EAST, ActionBack},
 		{evdev.BTN_NORTH, ActionInfo},
 		{evdev.BTN_WEST, ActionCategories},
-		{evdev.BTN_SELECT, ActionInfo},
+		{evdev.BTN_SELECT, ActionView},
 		{evdev.BTN_START, ActionSetup},
 		{evdev.BTN_TL, ActionPreviousSource},
 		{evdev.BTN_TR, ActionNextSource},

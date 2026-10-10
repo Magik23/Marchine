@@ -1056,7 +1056,7 @@ func (m Model) renderFooter(width int) string {
 			text.Render(" "+label)
 	}
 
-	credits := item("O", "CREDITS")
+	quit := item("Q", "QUIT")
 
 	full := []string{
 		item("ENTER", "PLAY"),
@@ -1073,25 +1073,22 @@ func (m Model) renderFooter(width int) string {
 
 	full = append(
 		full,
-		item("S", "SETUP"),
 		item("I", "INFO"),
-		credits,
+		quit,
 	)
 
-	// Credits remains the final item. Refresh and Setup stay discoverable from
-	// INFO rather than bloating the normal launcher footer.
 	medium := []string{
 		item("ENTER", "PLAY"),
 		item("/", "SEARCH"),
-		item("S", "SETUP"),
+		item("TAB", "SOURCE"),
 		item("I", "INFO"),
-		credits,
+		quit,
 	}
 
 	compact := []string{
 		item("ENTER", "PLAY"),
 		item("I", "INFO"),
-		credits,
+		quit,
 	}
 
 	separator := muted.Render("  ·  ")
@@ -1113,7 +1110,7 @@ func (m Model) renderFooter(width int) string {
 
 	return item("I", "INFO") +
 		separator +
-		credits
+		quit
 }
 
 func (m Model) renderSetup(width, height int) string {
@@ -1477,11 +1474,6 @@ func (m Model) renderInfo(width, height int) string {
 		Foreground(t.Accent).
 		Bold(true)
 
-	selected := lipgloss.NewStyle().
-		Foreground(t.SelectText).
-		Background(t.Selection).
-		Bold(true)
-
 	text := lipgloss.NewStyle().
 		Foreground(t.Text)
 
@@ -1498,9 +1490,9 @@ func (m Model) renderInfo(width, height int) string {
 
 	emu := "The setup field is deliberately called EMULATOR EXECUTABLE. The current automatic Arcade driver is MAME, but the executable + ROM-path model is intentionally reusable for future command-line emulator drivers.\n\nMarchine keeps MAME's local category metadata and filters the installed library without becoming an emulator encyclopedia."
 
-	shortcuts := "↑ / ↓         Navigate\nEnter         Launch / Apply\nEsc           Back / Cancel\n/             Search\n[ / ]         Index\nTab           Games / Arcade\nC             Categories\nR             Refresh Arcade Library\nS             Setup\nH             Hide Non-Arcade\nT             Theme\nI             Info\nO             Credits"
+	shortcuts := "↑ / ↓         Navigate\nEnter         Launch / Apply\nEsc           Back / Cancel\n/             Search\n[ / ]         Index\nTab           Games / Arcade\nC             Categories\nR             Refresh Arcade Library\nS             Setup\nH             Hide Non-Arcade\nT             Theme\nI             Info\nO             Credits\nQ             Quit"
 
-	controller := "D-Pad / LS    Navigate\nA             Launch / Apply\nB             Back / Cancel\nLT / RT       Index\nLB / RB       Games / Arcade\nY             Categories\nMenu          Setup\nL3            Theme\nX / View      Info\nR3            Credits"
+	controller := "D-Pad / LS    Navigate\nA             Launch / Apply\nB             Back / Cancel\nLT / RT       Index\nLB / RB       Games / Arcade\nY             Categories\nMenu          Setup\nL3            Theme\nX       Info\nR3            Credits\nView + Menu   Quit"
 
 	stateLabel := func(on bool) string {
 		if on {
@@ -1509,31 +1501,17 @@ func (m Model) renderInfo(width, height int) string {
 		return "OFF"
 	}
 
-	settingLine := func(index int, label string, on bool) string {
-		line := fmt.Sprintf("%-20s [ %s ]", label, stateLabel(on))
-		if m.infoSetting == index {
-			return selected.Render("> " + line)
-		}
-		return text.Render("  " + line)
-	}
+	quickSettingLine := fmt.Sprintf(
+		"%-20s [ %s ]",
+		"HIDE NON-ARCADE",
+		stateLabel(m.cfg.Arcade.HideJunk),
+	)
 
-	quickSettingsBlock := accent.Render("QUICK SETTINGS") +
+	quickSettingsBlock := accent.Render("QUICK SETTING") +
 		"\n\n" +
-		settingLine(
-			infoSettingFullscreen,
-			"FULLSCREEN ON LAUNCH",
-			m.cfg.Fullscreen,
-		) +
-		"\n" +
-		settingLine(
-			infoSettingHideNonArcade,
-			"HIDE NON-ARCADE",
-			m.cfg.Arcade.HideJunk,
-		) +
+		text.Render(quickSettingLine) +
 		"\n\n" +
-		muted.Render(
-			"↑↓ / D-Pad / LS  Navigate\nEnter / A          Toggle",
-		)
+		muted.Render("Enter / A          Toggle")
 
 	if width >= 96 {
 		innerW := max(50, width-6)

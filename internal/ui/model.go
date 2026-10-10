@@ -20,8 +20,9 @@ type arcadeLoadedMsg struct {
 }
 
 type launchFinishedMsg struct {
-	Name string
-	Err  error
+	Name              string
+	Err               error
+	RestoreFullscreen bool
 }
 
 type screenMode int
@@ -44,12 +45,6 @@ const (
 	setupFieldMAME = iota
 	setupFieldROM
 	setupFieldCount
-)
-
-const (
-	infoSettingFullscreen = iota
-	infoSettingHideNonArcade
-	infoSettingCount
 )
 
 type Model struct {
@@ -85,7 +80,6 @@ type Model struct {
 	setupROM      string
 
 	categoryCursor int
-	infoSetting    int
 }
 
 func NewModel(cfg config.Config, configPath string, forceRescan, demo bool) Model {
@@ -190,13 +184,16 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 
 	case launchFinishedMsg:
+		SetGamepadSuspended(false)
+
 		m.lastLaunch = msg.Name
 		if msg.Err != nil {
 			m.status = "LAUNCH FAILED: " + msg.Err.Error()
 		} else {
 			m.status = "RETURNED FROM " + strings.ToUpper(msg.Name)
 		}
-		return m, nil
+
+		return m, restoreMarchineWindowCmd(msg.RestoreFullscreen)
 
 	case tea.PasteMsg:
 		// Bubble Tea v2 emits bracketed terminal paste as its own message.
@@ -321,13 +318,47 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "enter":
 			if g, ok := m.selected(); ok {
 				m.status = "LAUNCHING · " + strings.ToUpper(g.Name)
+
+				SetGamepadSuspended(true)
+
+				name := g.Name
+				restoreFullscreen := marchineHyprlandFullscreen()
+
+				// Arcade/MAME is graphical, so keep Marchine's terminal UI alive
+				// behind the game instead of handing the terminal over to MAME.
+				if g.Source == library.SourceArcade {
+					command := g.Command
+					args := append([]string(nil), g.Args...)
+					workingDir := g.WorkingDir
+
+					return m, func() tea.Msg {
+						cmd := exec.Command(command, args...)
+						if workingDir != "" {
+							cmd.Dir = workingDir
+						}
+
+						err := cmd.Run()
+
+						return launchFinishedMsg{
+							Name:              name,
+							Err:               err,
+							RestoreFullscreen: restoreFullscreen,
+						}
+					}
+				}
+
+				// Generic GAMES entries keep the existing terminal-handoff behavior.
 				cmd := exec.Command(g.Command, g.Args...)
 				if g.WorkingDir != "" {
 					cmd.Dir = g.WorkingDir
 				}
-				name := g.Name
+
 				return m, tea.ExecProcess(cmd, func(err error) tea.Msg {
-					return launchFinishedMsg{Name: name, Err: err}
+					return launchFinishedMsg{
+						Name:              name,
+						Err:               err,
+						RestoreFullscreen: restoreFullscreen,
+					}
 				})
 			}
 		}
@@ -344,22 +375,6 @@ func (m *Model) cycleTheme() {
 	}
 	if err := config.Save(m.configPath, m.cfg); err != nil {
 		m.status = "THEME SAVE FAILED: " + err.Error()
-	}
-}
-
-func (m *Model) toggleFullscreen() {
-	m.cfg.Fullscreen = !m.cfg.Fullscreen
-	if m.cfg.Fullscreen {
-		m.status = "FULLSCREEN ON LAUNCH · ON"
-	} else {
-		m.status = "FULLSCREEN ON LAUNCH · OFF"
-	}
-
-	if m.demo {
-		return
-	}
-	if err := config.Save(m.configPath, m.cfg); err != nil {
-		m.status = "FULLSCREEN SAVE FAILED: " + err.Error()
 	}
 }
 
@@ -457,24 +472,14 @@ func (m *Model) openInfo() {
 	}
 	m.screen = screenInfo
 	m.searchMode = false
-	m.infoSetting = infoSettingFullscreen
 }
 
 func (m Model) updateInfo(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	switch msg.String() {
 	case "ctrl+c", "q":
 		return m, tea.Quit
-	case "up", "k":
-		m.infoSetting = (m.infoSetting - 1 + infoSettingCount) % infoSettingCount
-	case "down", "j":
-		m.infoSetting = (m.infoSetting + 1) % infoSettingCount
 	case "enter":
-		switch m.infoSetting {
-		case infoSettingFullscreen:
-			m.toggleFullscreen()
-		case infoSettingHideNonArcade:
-			m.toggleHideNonArcade()
-		}
+		m.toggleHideNonArcade()
 	case "o", "O", "ctrl+g":
 		m.openCredits()
 	case "t", "ctrl+t":
@@ -536,7 +541,7 @@ func (m *Model) openSetup() {
 func (m Model) updateSetup(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	key := msg.String()
 	switch key {
-	case "ctrl+c":
+	case "ctrl+c", "q":
 		return m, tea.Quit
 	case "esc", "s":
 		m.screen = screenLibrary
