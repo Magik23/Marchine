@@ -65,9 +65,6 @@ type machineXML struct {
 	Driver       struct {
 		Status string `xml:"status,attr"`
 	} `xml:"driver"`
-	Displays []struct {
-		Rotate string `xml:"rotate,attr"`
-	} `xml:"display"`
 }
 
 func Load(cfg config.ArcadeConfig, force bool) (Result, error) {
@@ -244,23 +241,19 @@ func hydrateLaunchConfig(games []library.Game, cfg config.ArcadeConfig) {
 			continue
 		}
 		games[i].Command = command
-		games[i].Args = LaunchArgs(games[i].ROM, cfg.ROMPaths, games[i].Vertical)
+		games[i].Args = LaunchArgs(games[i].ROM, cfg.ROMPaths)
 	}
 }
 
 // LaunchArgs returns MAME arguments for one indexed ROM. Explicit Marchine ROM
 // paths are passed to MAME so a path that indexes successfully also launches
-// successfully even when it is absent from mame.ini. Auto-rotation is based on
-// MAME's own display orientation metadata, not category-name guesses.
-func LaunchArgs(rom string, romPaths []string, vertical bool) []string {
+// successfully even when it is absent from mame.ini. Display orientation and
+// rotation remain entirely under MAME's own configuration.
+func LaunchArgs(rom string, romPaths []string) []string {
 	args := []string{rom}
 
 	if paths := normalizeROMPathList(romPaths); len(paths) > 0 {
 		args = append(args, "-rompath", strings.Join(paths, ";"))
-	}
-
-	if vertical {
-		args = append(args, "-autorol")
 	}
 
 	return args
@@ -472,7 +465,6 @@ func parseInstalledMachines(
 		rawCategory := strings.TrimSpace(cat)
 		browseCategory := BrowseCategory(rawCategory, mx.Description)
 		nonArcade := IsNonArcade(rawCategory, mx.Description)
-		vertical := isVerticalMachine(mx)
 
 		games = append(games, library.Game{
 			ID:           "mame:" + name,
@@ -483,10 +475,9 @@ func parseInstalledMachines(
 			Category:     browseCategory,
 			RawCategory:  rawCategory,
 			NonArcade:    nonArcade,
-			Vertical:     vertical,
 			ROM:          name,
 			Command:      mamePath,
-			Args:         LaunchArgs(name, cfg.ROMPaths, vertical),
+			Args:         LaunchArgs(name, cfg.ROMPaths),
 			CloneOf:      mx.CloneOf,
 		})
 	}
@@ -516,16 +507,6 @@ func terminateProcess(cmd *exec.Cmd) {
 	}
 	_ = cmd.Process.Kill()
 	_ = cmd.Wait()
-}
-
-func isVerticalMachine(mx machineXML) bool {
-	for _, display := range mx.Displays {
-		switch strings.TrimSpace(display.Rotate) {
-		case "90", "270":
-			return true
-		}
-	}
-	return false
 }
 
 func truthy(v string) bool {

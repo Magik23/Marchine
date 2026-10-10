@@ -1,6 +1,7 @@
 # Changelog
 
 ## Unreleased
+- Removed automatic `-autorol` injection for vertical MAME games so display orientation and rotation remain entirely under MAME's own configuration.
 
 ## 1.24.0
 - Simplified desktop launching: `marchine --desktop` now always starts fullscreen through Foot, removing the saved fullscreen preference and hard-coded 1180×900 desktop geometry.

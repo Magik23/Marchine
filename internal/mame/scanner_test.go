@@ -122,17 +122,16 @@ badgame=0.99
 	if res.Games[0].Name != "DoDonPachi" ||
 		res.Games[0].Year != "1997" ||
 		res.Games[0].Manufacturer != "Cave" ||
-		res.Games[0].Category != "SHMUPS" ||
-		!res.Games[0].Vertical {
+		res.Games[0].Category != "SHMUPS" {
 		t.Fatalf(
 			"unexpected first game: %#v",
 			res.Games[0],
 		)
 	}
 
-	wantLaunchArgs := []string{"ddonpach", "-rompath", filepath.Clean(roms), "-autorol"}
+	wantLaunchArgs := []string{"ddonpach", "-rompath", filepath.Clean(roms)}
 	if !reflect.DeepEqual(res.Games[0].Args, wantLaunchArgs) {
-		t.Fatalf("explicit ROM path/orientation missing from launch args: got %#v want %#v", res.Games[0].Args, wantLaunchArgs)
+		t.Fatalf("explicit ROM path missing from launch args: got %#v want %#v", res.Games[0].Args, wantLaunchArgs)
 	}
 
 	if res.Games[1].Category != "FIGHTING" {
@@ -523,8 +522,8 @@ func shellQuote(s string) string {
 
 func TestLaunchArgsPreserveMultipleExplicitROMPaths(t *testing.T) {
 	paths := []string{"/mnt/arcade-a", "/mnt/arcade-b", "/mnt/arcade-a"}
-	got := LaunchArgs("1942", paths, true)
-	want := []string{"1942", "-rompath", "/mnt/arcade-a;/mnt/arcade-b", "-autorol"}
+	got := LaunchArgs("1942", paths)
+	want := []string{"1942", "-rompath", "/mnt/arcade-a;/mnt/arcade-b"}
 	if !reflect.DeepEqual(got, want) {
 		t.Fatalf("LaunchArgs=%#v want=%#v", got, want)
 	}
@@ -541,13 +540,12 @@ func TestCurrentCacheRehydratesLaunchIdentityFromConfig(t *testing.T) {
 
 	cached := Result{
 		Games: []library.Game{{
-			ID:       "mame:1942",
-			Name:     "1942",
-			Source:   library.SourceArcade,
-			ROM:      "1942",
-			Vertical: true,
-			Command:  "/old/mame",
-			Args:     []string{"1942"},
+			ID:      "mame:1942",
+			Name:    "1942",
+			Source:  library.SourceArcade,
+			ROM:     "1942",
+			Command: "/old/mame",
+			Args:    []string{"1942"},
 		}},
 		MAMEVersion: "0.289",
 		ROMPaths:    []string{"/old/roms"},
@@ -571,7 +569,7 @@ func TestCurrentCacheRehydratesLaunchIdentityFromConfig(t *testing.T) {
 	if res.Games[0].Command != "/new/mame" {
 		t.Fatalf("cached command=%q want current config", res.Games[0].Command)
 	}
-	wantArgs := []string{"1942", "-rompath", "/new/roms;/more/roms", "-autorol"}
+	wantArgs := []string{"1942", "-rompath", "/new/roms;/more/roms"}
 	if !reflect.DeepEqual(res.Games[0].Args, wantArgs) {
 		t.Fatalf("cached launch args=%#v want=%#v", res.Games[0].Args, wantArgs)
 	}

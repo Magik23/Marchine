@@ -47,7 +47,7 @@ mame -listxml
 
 Marchine discovers top-level `.zip` and `.7z` ROM archives in the configured/detected ROM directories, then filters MAME XML to machines whose ROM archive is present.
 
-MAME's XML display rotation is retained. A 90°/270° machine is marked vertical and launched with `-autorol`.
+Marchine does not inject MAME display-rotation flags. Display orientation and rotation remain under MAME's own configuration.
 
 If Marchine has explicit `arcade.rom_paths`, the same paths are passed to MAME using `-rompath` when launching. Auto-detected MAME paths are not unnecessarily forced back onto MAME; in auto mode MAME remains authoritative for its own configured rompath.
 

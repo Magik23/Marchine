@@ -52,7 +52,7 @@ Use a real MAME installation and a small known ROM set to verify:
 3. explicit `rom_paths` index and launch using the same paths;
 4. multiple explicit ROM paths survive editing the primary path in Setup;
 5. clearing the primary Setup path restores auto-detection;
-6. a vertical MAME machine launches with `-autorol`;
+6. MAME games launch without Marchine-injected rotation flags and follow MAME's own display configuration;
 7. temporarily removing/unmounting the ROM source keeps a valid saved library and reports the degraded state;
 8. `marchine --doctor --rescan` exits nonzero for a real operational diagnostic failure;
 9. GAMES entries launch and return to Marchine cleanly.

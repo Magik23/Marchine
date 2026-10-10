@@ -9,7 +9,7 @@ The filename is retained for project history; this document describes the curren
 - Flat generic game-launcher entries.
 - Automatic MAME Arcade indexing from local data.
 - Name/year/manufacturer from MAME XML.
-- MAME display-orientation detection and `-autorol` for vertical games.
+- MAME launching leaves display orientation and rotation under MAME's own configuration.
 - CatVer-backed Arcade categories and Hide Non-Arcade presentation filter.
 - Search.
 - Direct process handoff and return.
