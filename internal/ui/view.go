@@ -730,11 +730,14 @@ func (m Model) renderList(width, height int) string {
 	items := m.filtered()
 	rows := max(4, height-4)
 
-	start := 0
+	// Let the selector move naturally near the top of the library, then keep it
+	// around three-fifths down the viewport so upcoming games stay visible.
+	anchor := max(1, rows*3/5)
 
-	if m.cursor >= rows {
-		start = m.cursor - rows + 1
-	}
+	start := max(0, m.cursor-anchor)
+
+	maxStart := max(0, len(items)-rows)
+	start = min(start, maxStart)
 
 	end := min(
 		len(items),
