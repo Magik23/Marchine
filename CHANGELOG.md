@@ -1,10 +1,12 @@
 # Changelog
 
 ## Unreleased
+- Redesigned arcade-first controller navigation: Left/Right browse letters, View switches Arcade/Games, Menu opens Credits, LB toggles Hide Non-Arcade, RB cycles Theme, and `View + Menu` remains Quit; L3/R3 are unassigned.
+- Added keyboard/controller-accessible Theme to Info Quick Settings, named theme labels, aligned shortcut legends, and fixed keyboard letter-jump confirm/cancel; Setup and Refresh remain keyboard-only.
 - Improved Arcade list navigation by keeping the selection around three-fifths down the viewport during long scrolling, preserving visibility of upcoming games.
 - Restored the Marchine icon in the local desktop launcher installed by the source installer.
 - Added a VERTICAL Arcade category filter using MAME display-orientation metadata without changing MAME launch or rotation behavior.
-- Removed automatic `-autorol` injection for vertical MAME games so display orientation and rotation remain entirely under MAME's own configuration.
+- Removed automatic `-autorol` injection for vertical MAME games so Marchine no longer overrides rotation; MAME configuration and the desktop compositor control presentation.
 
 ## 1.24.0
 - Simplified desktop launching: `marchine --desktop` now always starts fullscreen through Foot, removing the saved fullscreen preference and hard-coded 1180×900 desktop geometry.

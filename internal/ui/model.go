@@ -48,6 +48,12 @@ const (
 	setupFieldCount
 )
 
+const (
+	infoSettingHideNonArcade = iota
+	infoSettingTheme
+	infoSettingCount
+)
+
 type Model struct {
 	letterJump       string
 	letterJumpOrigin int
@@ -71,16 +77,16 @@ type Model struct {
 	lastLaunch  string
 	demo        bool
 
-	screen        screenMode
-	infoReturn    screenMode
-	creditsReturn screenMode
-	setupField    int
-	setupEditing  bool
-	setupBuffer   string
-	setupMAME     string
-	setupROM      string
+	screen         screenMode
+	overlayHistory []screenMode
+	setupField     int
+	setupEditing   bool
+	setupBuffer    string
+	setupMAME      string
+	setupROM       string
 
 	categoryCursor int
+	infoSetting    int
 }
 
 func NewModel(cfg config.Config, configPath string, forceRescan, demo bool) Model {
@@ -213,9 +219,25 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m.updateGamepad(msg.Action)
 
 	case tea.KeyPressMsg:
-		if m.letterJump != "" {
-			m.letterJump = ""
-			m.status = "READY"
+		// Keyboard index navigation must match controller preview/confirm/cancel.
+		if m.letterJump != "" && m.screen == screenLibrary && !m.searchMode {
+			switch msg.String() {
+			case "[":
+				m.cycleJumpLetter(-1)
+				return m, nil
+			case "]":
+				m.cycleJumpLetter(1)
+				return m, nil
+			case "enter":
+				m.confirmJumpLetter()
+				return m, nil
+			case "esc":
+				m.cancelJumpLetter()
+				return m, nil
+			default:
+				m.letterJump = ""
+				m.status = "READY"
+			}
 		}
 
 		// Match CLIAMP-style responsive behavior: while the terminal is below
@@ -370,7 +392,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 func (m *Model) cycleTheme() {
 	m.theme = NextTheme(m.theme.Name)
 	m.cfg.Theme = m.theme.Name
-	m.status = "THEME · " + strings.ToUpper(m.theme.Name)
+	m.status = "THEME · " + ThemeDisplayName(m.theme.Name)
 	if m.demo {
 		return
 	}
@@ -466,21 +488,57 @@ func (m Model) updateCategories(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
-func (m *Model) openInfo() {
-	m.infoReturn = m.screen
-	if m.infoReturn == screenInfo || m.infoReturn == screenCredits {
-		m.infoReturn = screenLibrary
+// openOverlay remembers the current screen so Esc can return to where the
+// user actually came from. Switching back to the immediate previous overlay
+// unwinds history instead of building an Info/Credits loop.
+func (m *Model) openOverlay(target screenMode) bool {
+	if m.screen == target {
+		return true
 	}
-	m.screen = screenInfo
+	n := len(m.overlayHistory)
+	if n > 0 && m.overlayHistory[n-1] == target {
+		m.overlayHistory = m.overlayHistory[:n-1]
+		m.screen = target
+		return true
+	}
+	m.overlayHistory = append(m.overlayHistory, m.screen)
+	m.screen = target
+	return false
+}
+
+func (m *Model) closeOverlay() {
+	n := len(m.overlayHistory)
+	if n == 0 {
+		m.screen = screenLibrary
+		return
+	}
+	m.screen = m.overlayHistory[n-1]
+	m.overlayHistory = m.overlayHistory[:n-1]
+}
+
+func (m *Model) openInfo() {
+	returning := m.openOverlay(screenInfo)
 	m.searchMode = false
+	if !returning {
+		m.infoSetting = infoSettingHideNonArcade
+	}
 }
 
 func (m Model) updateInfo(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	switch msg.String() {
 	case "ctrl+c", "q":
 		return m, tea.Quit
+	case "up", "k", "shift+tab":
+		m.infoSetting = (m.infoSetting - 1 + infoSettingCount) % infoSettingCount
+	case "down", "j", "tab":
+		m.infoSetting = (m.infoSetting + 1) % infoSettingCount
 	case "enter":
-		m.toggleHideNonArcade()
+		switch m.infoSetting {
+		case infoSettingHideNonArcade:
+			m.toggleHideNonArcade()
+		case infoSettingTheme:
+			m.cycleTheme()
+		}
 	case "o", "O", "ctrl+g":
 		m.openCredits()
 	case "t", "ctrl+t":
@@ -488,10 +546,7 @@ func (m Model) updateInfo(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	case "h", "H":
 		m.toggleHideNonArcade()
 	case "esc", "i", "I", "ctrl+k":
-		if m.infoReturn == screenInfo || m.infoReturn == screenCredits {
-			m.infoReturn = screenLibrary
-		}
-		m.screen = m.infoReturn
+		m.closeOverlay()
 		if m.status == "" {
 			m.status = "READY"
 		}
@@ -500,11 +555,7 @@ func (m Model) updateInfo(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 }
 
 func (m *Model) openCredits() {
-	m.creditsReturn = m.screen
-	if m.creditsReturn == screenCredits || m.creditsReturn == screenInfo {
-		m.creditsReturn = screenLibrary
-	}
-	m.screen = screenCredits
+	m.openOverlay(screenCredits)
 	m.searchMode = false
 }
 
@@ -517,10 +568,7 @@ func (m Model) updateCredits(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	case "t", "ctrl+t":
 		m.cycleTheme()
 	case "esc", "o", "O", "ctrl+g":
-		if m.creditsReturn == screenCredits || m.creditsReturn == screenInfo {
-			m.creditsReturn = screenLibrary
-		}
-		m.screen = m.creditsReturn
+		m.closeOverlay()
 		m.status = "READY"
 	}
 	return m, nil

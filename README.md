@@ -148,28 +148,28 @@ Marchine keeps setup, shortcuts, project information, and credits inside the TUI
 
 | Keyboard | Controller | Action |
 | --- | --- | --- |
-| `↑` / `↓`, `j` / `k` | D-Pad / LS | Navigate |
+| `↑` / `↓`, `j` / `k` | D-Pad / LS ↑ / ↓ | Navigate |
+| `[` / `]` | D-Pad / LS ← / →; LT / RT | Prev / Next Letter |
 | `Enter` | A | Launch / Apply |
 | `Esc` | B | Back / Cancel |
-| `[` / `]` | LT / RT | Index |
-| `Tab` | LB / RB | Switch Games / Arcade |
+| `Tab` | View | Games / Arcade |
 | `C` | Y | Categories |
-| `S` | Menu | Setup |
-| `T` | L3 | Theme |
 | `I` | X | Info |
-| `O` | R3 | Credits |
-| `/` | — | Search |
-| `R` | — | Refresh Arcade Library |
-| `H` | — | Hide Non-Arcade |
+| `O` | Menu | Credits |
+| `H` | LB | Hide Non-Arcade |
+| `T` | RB | Theme |
 | `Q` | View + Menu | Quit |
+| `/` | — | Search |
+| `S` | — | Setup |
+| `R` | — | Refresh Arcade Library |
 
-View has no standalone action; it is reserved as the modifier for the `View + Menu` quit chord.
+Standalone View switches sources; standalone Menu opens Credits. Both actions fire on release, while `View + Menu` quits without triggering either. L3/R3 have no launcher action. Setup, Refresh, and Search remain keyboard-only.
 
 Marchine also supports `PgUp`, `PgDown`, `Home`, and `End` for longer lists.
 
 On Linux, compatible evdev controllers are discovered by capabilities rather than fixed `/dev/input/event*` paths. Hotplug and multiple connected controllers are supported, and held D-Pad / left-stick navigation accelerates automatically. Search remains keyboard-driven.
 
-**Index** uses only first-character buckets that exist in the current list. `[` / `]` or LT / RT cycle through them with wraparound; `Enter` / A confirms the jump, while `Esc` / B cancels and restores the original position.
+**Prev / Next Letter** uses only first-character buckets present in the current list. Keyboard `[` / `]`, joystick Left/Right, or LT/RT cycle with wraparound; `Enter` / A confirms the jump, while `Esc` / B cancels and restores the original position.
 
 ## Setup
 
@@ -194,7 +194,7 @@ Configuration is stored at:
 ~/.config/marchine/config.toml
 ```
 
-The Info screen also contains a **Quick Setting** for **Hide Non-Arcade**. It can be changed with keyboard or controller input and persists to the same config file.
+The Info screen contains **Quick Settings** for **Hide Non-Arcade** and **Theme**. Up/Down selects a setting; Enter/A applies it. LB and RB are direct controller shortcuts. Both settings persist to the same config file. Theme labels are **MARCHINE → PLASMA → PHOSPHOR → EMBER**, while existing TOML identifiers remain `violet`, `cyan`, `green`, and `amber`.
 
 You can create a starter configuration explicitly with:
 

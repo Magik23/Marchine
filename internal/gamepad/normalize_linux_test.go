@@ -20,11 +20,11 @@ func TestButtonMapping(t *testing.T) {
 		{evdev.BTN_NORTH, ActionInfo},
 		{evdev.BTN_WEST, ActionCategories},
 		{evdev.BTN_SELECT, ActionView},
-		{evdev.BTN_START, ActionSetup},
-		{evdev.BTN_TL, ActionPreviousSource},
-		{evdev.BTN_TR, ActionNextSource},
-		{evdev.BTN_THUMBL, ActionTheme},
-		{evdev.BTN_THUMBR, ActionCredits},
+		{evdev.BTN_START, ActionMenu},
+		{evdev.BTN_TL, ActionHideNonArcade},
+		{evdev.BTN_TR, ActionTheme},
+		{evdev.BTN_TL2, ActionPreviousLetter},
+		{evdev.BTN_TR2, ActionNextLetter},
 	}
 
 	for _, test := range tests {
@@ -146,5 +146,14 @@ func TestLeftStickDeadZoneAndDirections(t *testing.T) {
 
 	if !ok || action != ActionRight {
 		t.Fatalf("stick right: got action=%v ok=%v", action, ok)
+	}
+}
+
+func TestThumbstickClicksHaveNoAction(t *testing.T) {
+	n := NewNormalizer(nil)
+	for _, code := range []evdev.EvCode{evdev.BTN_THUMBL, evdev.BTN_THUMBR} {
+		if action, ok := n.Handle(evdev.InputEvent{Type: evdev.EV_KEY, Code: code, Value: 1}); ok || action != ActionNone {
+			t.Fatalf("button %v produced action=%v ok=%v", code, action, ok)
+		}
 	}
 }

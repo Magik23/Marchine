@@ -82,19 +82,20 @@ func (n *Normalizer) handleButton(code evdev.EvCode, value int32) (Signal, bool)
 		action = ActionView
 
 	case evdev.BTN_START:
-		action = ActionSetup
+		action = ActionMenu
 
 	case evdev.BTN_TL:
-		action = ActionPreviousSource
+		action = ActionHideNonArcade
 
 	case evdev.BTN_TR:
-		action = ActionNextSource
-
-	case evdev.BTN_THUMBL:
 		action = ActionTheme
 
-	case evdev.BTN_THUMBR:
-		action = ActionCredits
+	// Some arcade sticks expose LT/RT as digital buttons, not analog axes.
+	case evdev.BTN_TL2:
+		action = ActionPreviousLetter
+
+	case evdev.BTN_TR2:
+		action = ActionNextLetter
 
 	default:
 		return Signal{}, false

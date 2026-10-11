@@ -71,63 +71,52 @@ type holdState struct {
 }
 
 type quitChordState struct {
-	viewPressed  bool
-	setupPressed bool
-	consumed     bool
+	viewPressed bool
+	menuPressed bool
+	consumed    bool
 }
 
 func (s *quitChordState) handle(action Action, pressed bool) (Action, bool) {
+	var wasPressed bool
 	switch action {
 	case ActionView:
-		if pressed {
-			s.viewPressed = true
-			if s.setupPressed && !s.consumed {
-				s.consumed = true
-				return ActionQuit, true
-			}
-			return ActionNone, false
-		}
-
-		s.viewPressed = false
-		if s.consumed {
-			s.resetIfReleased()
-			return ActionNone, false
-		}
+		wasPressed = s.viewPressed
+		s.viewPressed = pressed
+	case ActionMenu:
+		wasPressed = s.menuPressed
+		s.menuPressed = pressed
+	default:
 		return ActionNone, false
-
-	case ActionSetup:
-		if pressed {
-			s.setupPressed = true
-			if s.viewPressed && !s.consumed {
-				s.consumed = true
-				return ActionQuit, true
-			}
-			return ActionNone, false
-		}
-
-		s.setupPressed = false
-		if s.consumed {
-			s.resetIfReleased()
-			return ActionNone, false
-		}
-		return ActionSetup, true
 	}
 
+	if pressed {
+		if s.viewPressed && s.menuPressed && !s.consumed {
+			s.consumed = true
+			return ActionQuit, true
+		}
+		return ActionNone, false
+	}
+
+	standalone := wasPressed && !s.consumed
+	s.resetIfReleased()
+	if standalone {
+		return action, true
+	}
 	return ActionNone, false
 }
 
 func (s *quitChordState) resetIfReleased() {
-	if !s.viewPressed && !s.setupPressed {
+	if !s.viewPressed && !s.menuPressed {
 		s.consumed = false
 	}
 }
 
 func (s quitChordState) idle() bool {
-	return !s.viewPressed && !s.setupPressed && !s.consumed
+	return !s.viewPressed && !s.menuPressed && !s.consumed
 }
 
 func quitChordAction(action Action) bool {
-	return action == ActionView || action == ActionSetup
+	return action == ActionView || action == ActionMenu
 }
 
 func (m *Manager) run() {
@@ -345,6 +334,8 @@ func repeatable(action Action) bool {
 	switch action {
 	case ActionUp,
 		ActionDown,
+		ActionLeft,
+		ActionRight,
 		ActionPreviousLetter,
 		ActionNextLetter:
 		return true
@@ -362,6 +353,12 @@ func repeatOpposite(action Action) Action {
 	case ActionDown:
 		return ActionUp
 
+	case ActionLeft:
+		return ActionRight
+
+	case ActionRight:
+		return ActionLeft
+
 	case ActionPreviousLetter:
 		return ActionNextLetter
 
@@ -375,7 +372,7 @@ func repeatOpposite(action Action) Action {
 
 func initialRepeatDelay(action Action) time.Duration {
 	switch action {
-	case ActionPreviousLetter, ActionNextLetter:
+	case ActionLeft, ActionRight, ActionPreviousLetter, ActionNextLetter:
 		return 350 * time.Millisecond
 
 	default:
@@ -385,7 +382,7 @@ func initialRepeatDelay(action Action) time.Duration {
 
 func repeatInterval(action Action, heldFor time.Duration) time.Duration {
 	switch action {
-	case ActionPreviousLetter, ActionNextLetter:
+	case ActionLeft, ActionRight, ActionPreviousLetter, ActionNextLetter:
 		switch {
 		case heldFor < time.Second:
 			return 220 * time.Millisecond

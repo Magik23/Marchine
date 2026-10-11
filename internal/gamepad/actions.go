@@ -20,16 +20,13 @@ const (
 	ActionCategories
 	ActionInfo
 
-	// View is chord-only: View + Menu quits; X remains the Info button.
+	// Standalone View/Menu actions fire on release; View + Menu quits on press.
 	ActionView
-	ActionSetup
-
-	ActionPreviousSource
-	ActionNextSource
+	ActionMenu
 
 	ActionPreviousLetter
 	ActionNextLetter
 
 	ActionTheme
-	ActionCredits
+	ActionHideNonArcade
 )

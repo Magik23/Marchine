@@ -818,22 +818,160 @@ func TestInfoDocumentsQuitControls(t *testing.T) {
 	}
 }
 
-func TestViewActionIsChordOnly(t *testing.T) {
+func TestViewChangesSourceAndMenuOpensCredits(t *testing.T) {
 	m := NewModel(config.Default(), "", false, true)
-	m.width = minTerminalWidth
-	m.height = minTerminalHeight
-
-	next, cmd := m.Update(GamepadMsg{Action: gamepad.ActionView})
+	m.width, m.height = minTerminalWidth, minTerminalHeight
+	original := m.source
+	next, _ := m.Update(GamepadMsg{Action: gamepad.ActionView})
 	m = next.(Model)
+	if m.source == original {
+		t.Fatal("standalone View should switch Games / Arcade")
+	}
+	next, _ = m.Update(GamepadMsg{Action: gamepad.ActionMenu})
+	m = next.(Model)
+	if m.screen != screenCredits {
+		t.Fatal("standalone Menu should open Credits")
+	}
+}
 
-	if cmd != nil {
-		t.Fatal("View alone should not produce a UI command")
+func TestInfoThemeSettingAndShoulderShortcuts(t *testing.T) {
+	m := NewModel(config.Default(), "", false, true)
+	m.width, m.height = 140, 52
+	m.openInfo()
+	if m.infoSetting != infoSettingHideNonArcade {
+		t.Fatal("Info should initially select Hide Non-Arcade")
+	}
+	next, _ := m.Update(GamepadMsg{Action: gamepad.ActionDown})
+	m = next.(Model)
+	if m.infoSetting != infoSettingTheme {
+		t.Fatal("Down should select Theme")
+	}
+	next, _ = m.Update(GamepadMsg{Action: gamepad.ActionConfirm})
+	m = next.(Model)
+	if m.theme.Name != "cyan" || ThemeDisplayName(m.theme.Name) != "PLASMA" {
+		t.Fatalf("Theme should cycle to PLASMA; got %q", m.theme.Name)
+	}
+	next, _ = m.Update(GamepadMsg{Action: gamepad.ActionHideNonArcade})
+	m = next.(Model)
+	if m.cfg.Arcade.HideJunk {
+		t.Fatal("LB shortcut should toggle Hide Non-Arcade OFF")
+	}
+	next, _ = m.Update(GamepadMsg{Action: gamepad.ActionTheme})
+	m = next.(Model)
+	if m.theme.Name != "green" {
+		t.Fatal("RB should cycle Theme independently of Info selection")
+	}
+}
+
+func TestKeyboardIndexConfirmAndCancel(t *testing.T) {
+	m := NewModel(config.Default(), "", false, true)
+	m.width, m.height = 140, 52
+	m.source = library.SourceArcade
+	original := m.cursor
+	next, cmd := m.Update(textKey("]"))
+	m = next.(Model)
+	if cmd != nil || m.letterJump == "" {
+		t.Fatal("keyboard ] should open letter preview without launching")
+	}
+	next, cmd = m.Update(specialKey(tea.KeyEscape))
+	m = next.(Model)
+	if cmd != nil || m.letterJump != "" || m.cursor != original {
+		t.Fatal("keyboard Escape should cancel preview and restore cursor")
+	}
+	next, _ = m.Update(textKey("["))
+	m = next.(Model)
+	if m.letterJump == "" {
+		t.Fatal("keyboard [ should open letter preview")
+	}
+	next, cmd = m.Update(specialKey(tea.KeyEnter))
+	m = next.(Model)
+	if cmd != nil || m.letterJump != "" {
+		t.Fatal("keyboard Enter should confirm preview, not launch game")
+	}
+}
+
+func TestThemeDisplayNamesPreserveConfigIdentifiers(t *testing.T) {
+	cases := map[string]string{"violet": "MARCHINE", "cyan": "PLASMA", "green": "PHOSPHOR", "amber": "EMBER"}
+	for stored, label := range cases {
+		if got := ThemeDisplayName(stored); got != label {
+			t.Fatalf("theme %s label=%s want=%s", stored, got, label)
+		}
+	}
+}
+
+func TestOverlayBackReturnsToOrigin(t *testing.T) {
+	for _, origin := range []screenMode{screenLibrary, screenCategories, screenSetup, screenInfo} {
+		m := NewModel(config.Default(), "", false, true)
+		m.width, m.height = 140, 52
+		m.screen = origin
+		m.openCredits()
+		if m.screen != screenCredits {
+			t.Fatalf("origin %v: Credits did not open", origin)
+		}
+		next, _ := m.Update(tea.KeyPressMsg(tea.Key{Code: tea.KeyEscape}))
+		m = next.(Model)
+		if m.screen != origin {
+			t.Fatalf("origin %v: Esc from Credits returned to %v", origin, m.screen)
+		}
+	}
+}
+
+func TestInfoCreditsNavigationUnwindsWithoutLoops(t *testing.T) {
+	m := NewModel(config.Default(), "", false, true)
+	m.width, m.height = 140, 52
+	pressEsc := func() {
+		next, _ := m.Update(tea.KeyPressMsg(tea.Key{Code: tea.KeyEscape}))
+		m = next.(Model)
 	}
 
-	if m.screen != screenLibrary {
-		t.Fatalf(
-			"View alone should leave the library unchanged, screen=%v",
-			m.screen,
-		)
+	m.openInfo()
+	m.infoSetting = infoSettingTheme
+	m.openCredits()
+	m.openInfo() // Returning to the previous Info should not add a history entry.
+	if m.screen != screenInfo || m.infoSetting != infoSettingTheme || len(m.overlayHistory) != 1 {
+		t.Fatalf("Credits -> Info did not restore selected setting and history: %+v", m.overlayHistory)
+	}
+	m.openCredits()
+	pressEsc()
+	if m.screen != screenInfo {
+		t.Fatalf("Esc from Credits should return to Info, got %v", m.screen)
+	}
+	pressEsc()
+	if m.screen != screenLibrary || len(m.overlayHistory) != 0 {
+		t.Fatalf("Esc from Info should return to Library and clear history: screen=%v history=%v", m.screen, m.overlayHistory)
+	}
+
+	m.openCredits()
+	m.openInfo()
+	pressEsc()
+	if m.screen != screenCredits {
+		t.Fatalf("Esc from Info should return to Credits, got %v", m.screen)
+	}
+	pressEsc()
+	if m.screen != screenLibrary || len(m.overlayHistory) != 0 {
+		t.Fatalf("Esc from Credits should return to Library and clear history: screen=%v history=%v", m.screen, m.overlayHistory)
+	}
+}
+
+func TestInfoCreditsFootersOnlyShowContextualControls(t *testing.T) {
+	m := NewModel(config.Default(), "", false, true)
+	info := ansiEscape.ReplaceAllString(m.renderInfoFooter(122), "")
+	for _, want := range []string{"↑ / ↓ SELECT", "ENTER APPLY", "ESC RETURN", "O CREDITS"} {
+		if !strings.Contains(info, want) {
+			t.Fatalf("Info footer missing %q: %q", want, info)
+		}
+	}
+	if strings.Contains(info, "THEME") || strings.Contains(info, "HIDE NON-ARCADE") {
+		t.Fatalf("Info footer duplicates Quick Settings: %q", info)
+	}
+
+	credits := ansiEscape.ReplaceAllString(m.renderCreditsFooter(122), "")
+	for _, want := range []string{"ESC RETURN", "I INFO"} {
+		if !strings.Contains(credits, want) {
+			t.Fatalf("Credits footer missing %q: %q", want, credits)
+		}
+	}
+	if strings.Contains(credits, "THEME") {
+		t.Fatalf("Credits footer unexpectedly advertises Theme: %q", credits)
 	}
 }

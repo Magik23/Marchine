@@ -65,3 +65,17 @@ func NextTheme(current string) Theme {
 	}
 	return ThemeByName(themeOrder[(idx+1)%len(themeOrder)])
 }
+
+// ThemeDisplayName is presentation-only. Keep the saved TOML identifiers stable.
+func ThemeDisplayName(name string) string {
+	switch strings.ToLower(name) {
+	case "cyan":
+		return "PLASMA"
+	case "green":
+		return "PHOSPHOR"
+	case "amber":
+		return "EMBER"
+	default:
+		return "MARCHINE"
+	}
+}

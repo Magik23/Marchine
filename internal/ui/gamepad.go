@@ -34,6 +34,13 @@ func (m Model) updateGamepad(action gamepad.Action) (tea.Model, tea.Cmd) {
 		return m, nil
 	}
 
+	// The joystick's horizontal axis and LT/RT share the letter index.
+	if action == gamepad.ActionLeft {
+		action = gamepad.ActionPreviousLetter
+	} else if action == gamepad.ActionRight {
+		action = gamepad.ActionNextLetter
+	}
+
 	if action == gamepad.ActionPreviousLetter {
 		if m.screen == screenLibrary && !m.searchMode {
 			m.cycleJumpLetter(-1)
@@ -117,9 +124,6 @@ func (m Model) gamepadKey(action gamepad.Action) (tea.KeyPressMsg, bool) {
 	case gamepad.ActionDown:
 		return specialKey(tea.KeyDown), true
 
-	case gamepad.ActionLeft, gamepad.ActionRight:
-		return tea.KeyPressMsg{}, false
-
 	case gamepad.ActionConfirm:
 		return specialKey(tea.KeyEnter), true
 
@@ -137,21 +141,19 @@ func (m Model) gamepadKey(action gamepad.Action) (tea.KeyPressMsg, bool) {
 	case gamepad.ActionInfo:
 		return textKey("i"), true
 
-	case gamepad.ActionSetup:
-		if m.screen == screenLibrary || m.screen == screenSetup {
-			return textKey("s"), true
-		}
-
-	case gamepad.ActionPreviousSource, gamepad.ActionNextSource:
+	case gamepad.ActionView:
 		if m.screen == screenLibrary {
 			return specialKey(tea.KeyTab), true
 		}
 
+	case gamepad.ActionMenu:
+		return textKey("o"), true
+
+	case gamepad.ActionHideNonArcade:
+		return textKey("h"), true
+
 	case gamepad.ActionTheme:
 		return textKey("t"), true
-
-	case gamepad.ActionCredits:
-		return textKey("o"), true
 	}
 
 	return tea.KeyPressMsg{}, false

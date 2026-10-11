@@ -1480,9 +1480,6 @@ func (m Model) renderInfo(width, height int) string {
 	text := lipgloss.NewStyle().
 		Foreground(t.Text)
 
-	muted := lipgloss.NewStyle().
-		Foreground(t.Muted)
-
 	section := func(title, body string) string {
 		return accent.Render(title) +
 			"\n\n" +
@@ -1493,9 +1490,43 @@ func (m Model) renderInfo(width, height int) string {
 
 	emu := "The setup field is deliberately called EMULATOR EXECUTABLE. The current automatic Arcade driver is MAME, but the executable + ROM-path model is intentionally reusable for future command-line emulator drivers.\n\nMarchine keeps MAME's local category metadata and filters the installed library without becoming an emulator encyclopedia."
 
-	shortcuts := "↑ / ↓         Navigate\nEnter         Launch / Apply\nEsc           Back / Cancel\n/             Search\n[ / ]         Index\nTab           Games / Arcade\nC             Categories\nR             Refresh Arcade Library\nS             Setup\nH             Hide Non-Arcade\nT             Theme\nI             Info\nO             Credits\nQ             Quit"
+	keyboardLine := func(control, label string) string {
+		return fmt.Sprintf("%-18s%s", control, label)
+	}
+	shortcuts := strings.Join([]string{
+		keyboardLine("↑ / ↓, J / K", "Navigate"),
+		keyboardLine("Enter", "Launch / Apply"),
+		keyboardLine("Esc", "Back / Cancel"),
+		keyboardLine("/", "Search"),
+		keyboardLine("[ / ]", "Prev / Next Letter"),
+		keyboardLine("Tab", "Games / Arcade"),
+		keyboardLine("C", "Categories"),
+		keyboardLine("R", "Refresh Arcade Library"),
+		keyboardLine("S", "Setup"),
+		keyboardLine("H", "Hide Non-Arcade"),
+		keyboardLine("T", "Theme"),
+		keyboardLine("I", "Info"),
+		keyboardLine("O", "Credits"),
+		keyboardLine("Q", "Quit"),
+	}, "\n")
 
-	controller := "D-Pad / LS    Navigate\nA             Launch / Apply\nB             Back / Cancel\nLT / RT       Index\nLB / RB       Games / Arcade\nY             Categories\nMenu          Setup\nL3            Theme\nX       Info\nR3            Credits\nView + Menu   Quit"
+	controllerLine := func(control, label string) string {
+		return fmt.Sprintf("%-18s%s", control, label)
+	}
+	controller := strings.Join([]string{
+		controllerLine("D-Pad / LS ↑↓", "Navigate"),
+		controllerLine("D-Pad / LS ←→", "Prev / Next Letter"),
+		controllerLine("A", "Launch / Apply"),
+		controllerLine("B", "Back / Cancel"),
+		controllerLine("X", "Info"),
+		controllerLine("Y", "Categories"),
+		controllerLine("View", "Games / Arcade"),
+		controllerLine("Menu", "Credits"),
+		controllerLine("LB", "Hide Non-Arcade"),
+		controllerLine("RB", "Theme"),
+		controllerLine("LT / RT", "Prev / Next Letter"),
+		controllerLine("View + Menu", "Quit"),
+	}, "\n")
 
 	stateLabel := func(on bool) string {
 		if on {
@@ -1504,17 +1535,19 @@ func (m Model) renderInfo(width, height int) string {
 		return "OFF"
 	}
 
-	quickSettingLine := fmt.Sprintf(
-		"%-20s [ %s ]",
-		"HIDE NON-ARCADE",
-		stateLabel(m.cfg.Arcade.HideJunk),
-	)
+	quickSettingLine := func(setting int, label, value string) string {
+		marker := "  "
+		style := text
+		if m.infoSetting == setting {
+			marker = "> "
+			style = accent
+		}
+		return style.Render(fmt.Sprintf("%s%-20s [ %s ]", marker, label, value))
+	}
 
-	quickSettingsBlock := accent.Render("QUICK SETTING") +
-		"\n\n" +
-		text.Render(quickSettingLine) +
-		"\n\n" +
-		muted.Render("Enter / A          Toggle")
+	quickSettingsBlock := accent.Render("QUICK SETTINGS") + "\n\n" +
+		quickSettingLine(infoSettingHideNonArcade, "HIDE NON-ARCADE", stateLabel(m.cfg.Arcade.HideJunk)) + "\n" +
+		quickSettingLine(infoSettingTheme, "THEME", ThemeDisplayName(m.theme.Name))
 
 	if width >= 96 {
 		innerW := max(50, width-6)
@@ -1550,18 +1583,15 @@ func (m Model) renderInfo(width, height int) string {
 					quickSettingsBlock,
 			)
 
+		// Keep both complete reference lists visible at the 124x48 minimum.
+		// Using a single line after each heading avoids clipping Quit.
 		right := lipgloss.NewStyle().
 			Width(rightW).
 			Render(
-				section(
-					"KEYBOARD SHORTCUTS · FIXED",
-					shortcuts,
-				) +
-					"\n\n" +
-					section(
-						"CONTROLLER · FIXED",
-						controller,
-					),
+				accent.Render("KEYBOARD SHORTCUTS") + "\n" +
+					text.Render(shortcuts) + "\n" +
+					accent.Render("CONTROLLER") + "\n" +
+					text.Render(controller),
 			)
 
 		body := lipgloss.JoinHorizontal(
@@ -1583,11 +1613,11 @@ func (m Model) renderInfo(width, height int) string {
 			emu,
 		) + "\n\n" +
 		section(
-			"KEYBOARD SHORTCUTS · FIXED",
+			"KEYBOARD SHORTCUTS",
 			shortcuts,
 		) + "\n\n" +
 		section(
-			"CONTROLLER · FIXED",
+			"CONTROLLER",
 			controller,
 		) + "\n\n" +
 		quickSettingsBlock
@@ -1608,17 +1638,16 @@ func (m Model) renderInfoFooter(width int) string {
 	muted := lipgloss.NewStyle().
 		Foreground(t.Muted)
 
-	return key.Render("I / ESC") +
-		text.Render(" RETURN") +
-		muted.Render("  ·  ") +
-		key.Render("H") +
-		text.Render(" HIDE NON-ARCADE") +
-		muted.Render("  ·  ") +
-		key.Render("O") +
-		text.Render(" CREDITS") +
-		muted.Render("  ·  ") +
-		key.Render("T") +
-		text.Render(" THEME")
+	item := func(k, label string) string {
+		return key.Render(k) + text.Render(" "+label)
+	}
+
+	return strings.Join([]string{
+		item("↑ / ↓", "SELECT"),
+		item("ENTER", "APPLY"),
+		item("ESC", "RETURN"),
+		item("O", "CREDITS"),
+	}, muted.Render("  ·  "))
 }
 
 func (m Model) renderCredits(width, height int) string {
@@ -1719,14 +1748,14 @@ func (m Model) renderCreditsFooter(width int) string {
 	muted := lipgloss.NewStyle().
 		Foreground(t.Muted)
 
-	return key.Render("O / ESC") +
-		text.Render(" RETURN") +
-		muted.Render("  ·  ") +
-		key.Render("I") +
-		text.Render(" INFO") +
-		muted.Render("  ·  ") +
-		key.Render("T") +
-		text.Render(" THEME")
+	item := func(k, label string) string {
+		return key.Render(k) + text.Render(" "+label)
+	}
+
+	return strings.Join([]string{
+		item("ESC", "RETURN"),
+		item("I", "INFO"),
+	}, muted.Render("  ·  "))
 }
 
 func terminalTooSmall(width, height int) bool {
