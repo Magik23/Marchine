@@ -4,9 +4,9 @@ package gamepad
 
 import "testing"
 
-func TestStandaloneViewAndMenuFireOnRelease(t *testing.T) {
-	for _, button := range []Action{ActionView, ActionMenu} {
-		var state quitChordState
+func TestStandaloneChordButtonsFireOnRelease(t *testing.T) {
+	for _, button := range []Action{ActionView, ActionMenu, ActionTheme} {
+		var state shortcutChordState
 		if action, ok := state.handle(button, true); ok || action != ActionNone {
 			t.Fatalf("button %v press emitted action=%v ok=%v", button, action, ok)
 		}
@@ -19,46 +19,93 @@ func TestStandaloneViewAndMenuFireOnRelease(t *testing.T) {
 	}
 }
 
-func TestQuitChordSuppressesStandaloneActionsInEitherOrder(t *testing.T) {
-	for _, pair := range [][2]Action{{ActionView, ActionMenu}, {ActionMenu, ActionView}} {
-		var state quitChordState
-		if a, ok := state.handle(pair[0], true); ok || a != ActionNone {
-			t.Fatalf("first press emitted %v %v", a, ok)
-		}
-		if a, ok := state.handle(pair[1], true); !ok || a != ActionQuit {
-			t.Fatalf("chord emitted %v %v, want Quit", a, ok)
-		}
-		for _, button := range pair {
-			if a, ok := state.handle(button, false); ok || a != ActionNone {
-				t.Fatalf("chord release emitted %v %v", a, ok)
+func TestChordSuppressesStandaloneActionsInEitherOrder(t *testing.T) {
+	for _, tc := range []struct {
+		name string
+		pair [2]Action
+		want Action
+	}{
+		{"quit-view-first", [2]Action{ActionView, ActionMenu}, ActionQuit},
+		{"quit-menu-first", [2]Action{ActionMenu, ActionView}, ActionQuit},
+		{"rotate-view-first", [2]Action{ActionView, ActionTheme}, ActionRotateDisplay},
+		{"rotate-rb-first", [2]Action{ActionTheme, ActionView}, ActionRotateDisplay},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			var state shortcutChordState
+			if a, ok := state.handle(tc.pair[0], true); ok || a != ActionNone {
+				t.Fatalf("first press emitted %v %v", a, ok)
 			}
+			if a, ok := state.handle(tc.pair[1], true); !ok || a != tc.want {
+				t.Fatalf("chord emitted %v %v, want %v", a, ok, tc.want)
+			}
+			for _, button := range tc.pair {
+				if a, ok := state.handle(button, false); ok || a != ActionNone {
+					t.Fatalf("chord release emitted %v %v", a, ok)
+				}
+			}
+			if !state.idle() {
+				t.Fatal("chord did not rearm")
+			}
+		})
+	}
+}
+
+func TestChordsDoNotRetriggerUntilBothReleased(t *testing.T) {
+	for _, tc := range []struct {
+		name   string
+		second Action
+		want   Action
+	}{
+		{"quit", ActionMenu, ActionQuit},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			var state shortcutChordState
+			state.handle(ActionView, true)
+			if a, ok := state.handle(tc.second, true); !ok || a != tc.want {
+				t.Fatalf("first chord emitted %v %v", a, ok)
+			}
+			state.handle(tc.second, false)
+			if a, ok := state.handle(tc.second, true); ok || a != ActionNone {
+				t.Fatalf("partial release retriggered %v %v", a, ok)
+			}
+			state.handle(ActionView, false)
+			state.handle(tc.second, false)
+			state.handle(tc.second, true)
+			if a, ok := state.handle(ActionView, true); !ok || a != tc.want {
+				t.Fatalf("rearmed chord emitted %v %v", a, ok)
+			}
+		})
+	}
+}
+
+func TestUnrelatedButtonsDoNotEnterChordHandling(t *testing.T) {
+	for _, action := range []Action{ActionInfo, ActionHideNonArcade, ActionConfirm, ActionBack} {
+		if chordButton(action) {
+			t.Fatalf("button %v should not be handled as a chord", action)
 		}
-		if !state.idle() {
-			t.Fatal("chord did not rearm")
+	}
+	for _, action := range []Action{ActionView, ActionMenu, ActionTheme} {
+		if !chordButton(action) {
+			t.Fatalf("button %v must be handled as a chord", action)
 		}
 	}
 }
 
-func TestQuitChordDoesNotRetriggerUntilBothReleased(t *testing.T) {
-	var state quitChordState
+func TestHeldViewCanRotateMoreThanOnceWithoutThemeOrSource(t *testing.T) {
+	var state shortcutChordState
 	state.handle(ActionView, true)
-	if a, ok := state.handle(ActionMenu, true); !ok || a != ActionQuit {
-		t.Fatalf("first chord emitted %v %v", a, ok)
+	for i := 0; i < 3; i++ {
+		if a, ok := state.handle(ActionTheme, true); !ok || a != ActionRotateDisplay {
+			t.Fatalf("rotation %d: emitted %v %v", i, a, ok)
+		}
+		if a, ok := state.handle(ActionTheme, false); ok || a != ActionNone {
+			t.Fatalf("rotation %d: emitted standalone Theme on release", i)
+		}
 	}
-	state.handle(ActionMenu, false)
-	if a, ok := state.handle(ActionMenu, true); ok || a != ActionNone {
-		t.Fatalf("partial release retriggered %v %v", a, ok)
+	if a, ok := state.handle(ActionView, false); ok || a != ActionNone {
+		t.Fatalf("chord release emitted standalone View: %v %v", a, ok)
 	}
-	state.handle(ActionView, false)
-	state.handle(ActionMenu, false)
-	state.handle(ActionMenu, true)
-	if a, ok := state.handle(ActionView, true); !ok || a != ActionQuit {
-		t.Fatalf("rearmed chord emitted %v %v", a, ok)
-	}
-}
-
-func TestQuitChordDoesNotUseInfo(t *testing.T) {
-	if quitChordAction(ActionInfo) || !quitChordAction(ActionView) || !quitChordAction(ActionMenu) {
-		t.Fatal("only View and Menu may form quit chord")
+	if !state.idle() {
+		t.Fatal("state was not cleared")
 	}
 }

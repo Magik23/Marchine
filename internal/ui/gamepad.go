@@ -30,6 +30,11 @@ func (m Model) updateGamepad(action gamepad.Action) (tea.Model, tea.Cmd) {
 		return m, tea.Quit
 	}
 
+	if action == gamepad.ActionRotateDisplay {
+		m.status = "ROTATING DISPLAY…"
+		return m, rotateDisplayCmd()
+	}
+
 	if m.width > 0 && m.height > 0 && terminalTooSmall(m.width, m.height) {
 		return m, nil
 	}

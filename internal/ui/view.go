@@ -1524,6 +1524,7 @@ func (m Model) renderInfo(width, height int) string {
 		controllerLine("Menu", "Credits"),
 		controllerLine("LB", "Hide Non-Arcade"),
 		controllerLine("RB", "Theme"),
+		controllerLine("View + RB", "Rotate Display"),
 		controllerLine("LT / RT", "Prev / Next Letter"),
 		controllerLine("View + Menu", "Quit"),
 	}, "\n")

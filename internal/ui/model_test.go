@@ -1,6 +1,9 @@
 package ui
 
 import (
+	"errors"
+	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -973,5 +976,50 @@ func TestInfoCreditsFootersOnlyShowContextualControls(t *testing.T) {
 	}
 	if strings.Contains(credits, "THEME") {
 		t.Fatalf("Credits footer unexpectedly advertises Theme: %q", credits)
+	}
+}
+
+// Rotation is an optional external utility, not a Marchine or MAME dependency.
+func TestControllerRotationMissingUtilityIsNonfatal(t *testing.T) {
+	t.Setenv("PATH", t.TempDir())
+	m := NewModel(config.Default(), "", false, true)
+	updated, cmd := m.updateGamepad(gamepad.ActionRotateDisplay)
+	if cmd == nil {
+		t.Fatal("rotation must return a non-blocking command")
+	}
+	result, ok := cmd().(displayRotateFinishedMsg)
+	if !ok || !errors.Is(result.Err, exec.ErrNotFound) {
+		t.Fatalf("missing utility: %#v", result)
+	}
+	updated, followup := updated.(Model).Update(result)
+	if followup != nil || updated.(Model).status != "DISPLAY ROTATE NOT INSTALLED" {
+		t.Fatalf("missing utility should set status without quitting: %#v", updated)
+	}
+}
+
+func TestControllerRotationExecutesInstalledUtility(t *testing.T) {
+	dir := t.TempDir()
+	marker := filepath.Join(dir, "called")
+	script := filepath.Join(dir, "display-rotate")
+	// No shell interpolation: a tiny executable under the isolated test PATH.
+	if err := os.WriteFile(script, []byte("#!/bin/sh\nprintf x > "+marker+"\n"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("PATH", dir)
+	m := NewModel(config.Default(), "", false, true)
+	updated, cmd := m.updateGamepad(gamepad.ActionRotateDisplay)
+	if cmd == nil {
+		t.Fatal("rotation must return a command")
+	}
+	result, ok := cmd().(displayRotateFinishedMsg)
+	if !ok || result.Err != nil {
+		t.Fatalf("rotation command: %#v", result)
+	}
+	updated, followup := updated.(Model).Update(result)
+	if followup != nil || updated.(Model).status != "DISPLAY ROTATED" {
+		t.Fatalf("successful rotation status: %#v", updated)
+	}
+	if _, err := os.Stat(marker); err != nil {
+		t.Fatalf("display-rotate was not invoked: %v", err)
 	}
 }

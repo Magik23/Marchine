@@ -158,12 +158,17 @@ Marchine keeps setup, shortcuts, project information, and credits inside the TUI
 | `O` | Menu | Credits |
 | `H` | LB | Hide Non-Arcade |
 | `T` | RB | Theme |
+| — | View + RB | Rotate Display |
 | `Q` | View + Menu | Quit |
 | `/` | — | Search |
 | `S` | — | Setup |
 | `R` | — | Refresh Arcade Library |
 
-Standalone View switches sources; standalone Menu opens Credits. Both actions fire on release, while `View + Menu` quits without triggering either. L3/R3 have no launcher action. Setup, Refresh, and Search remain keyboard-only.
+Standalone View switches sources; standalone Menu opens Credits; standalone RB changes Theme. All three fire on release so `View + Menu` quits and `View + RB` rotates without triggering any of their individual actions. Press either button first, then the other; release both before repeating a chord. L3/R3 have no launcher action. Setup, Refresh, and Search remain keyboard-only.
+
+**Optional display rotation:** `View + RB` invokes an executable named `display-rotate` from `PATH` if installed. Marchine does not install, configure, or depend on that utility, Hyprland, or Omarchy. Without the utility, Marchine remains fully functional and displays a nonfatal status message. Keyboard display rotation is configured separately in the desktop environment (for example `Super + Alt + R` in Hyprland), not by Marchine.
+
+**For developers modifying bindings:** `View + RB` is a separate, optional external-command chord — not an ordinary Marchine button assignment. Its handling lives in `internal/gamepad/manager_linux.go` (`shortcutChordState` and `chordButton`), while `internal/ui/gamepad.go` dispatches `ActionRotateDisplay` and `internal/ui/model.go` executes `display-rotate`. To remap or remove this integration, update those paths together with the Info legend and associated tests. Simply uninstalling `display-rotate` prevents rotation but does **not** disable chord interception: `View + RB` will still suppress the usual View and RB actions.
 
 Marchine also supports `PgUp`, `PgDown`, `Home`, and `End` for longer lists.
 

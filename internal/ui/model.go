@@ -1,6 +1,7 @@
 package ui
 
 import (
+	"errors"
 	"fmt"
 	"os/exec"
 	"sort"
@@ -23,6 +24,18 @@ type launchFinishedMsg struct {
 	Name              string
 	Err               error
 	RestoreFullscreen bool
+}
+
+type displayRotateFinishedMsg struct {
+	Err error
+}
+
+// Optional companion utility: Marchine neither rotates monitors itself nor
+// requires display-rotate to be installed. The command runs asynchronously.
+func rotateDisplayCmd() tea.Cmd {
+	return func() tea.Msg {
+		return displayRotateFinishedMsg{Err: exec.Command("display-rotate").Run()}
+	}
 }
 
 type screenMode int
@@ -201,6 +214,17 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 
 		return m, restoreMarchineWindowCmd(msg.RestoreFullscreen)
+
+	case displayRotateFinishedMsg:
+		switch {
+		case msg.Err == nil:
+			m.status = "DISPLAY ROTATED"
+		case errors.Is(msg.Err, exec.ErrNotFound):
+			m.status = "DISPLAY ROTATE NOT INSTALLED"
+		default:
+			m.status = "DISPLAY ROTATE FAILED: " + msg.Err.Error()
+		}
+		return m, nil
 
 	case tea.PasteMsg:
 		// Bubble Tea v2 emits bracketed terminal paste as its own message.

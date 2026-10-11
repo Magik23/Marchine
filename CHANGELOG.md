@@ -1,6 +1,7 @@
 # Changelog
 
 ## Unreleased
+- Added optional `View + RB` display rotation in Marchine via the independent `display-rotate` executable, with chord suppression, missing-command feedback, and no desktop dependencies.
 - Redesigned arcade-first controller navigation: Left/Right browse letters, View switches Arcade/Games, Menu opens Credits, LB toggles Hide Non-Arcade, RB cycles Theme, and `View + Menu` remains Quit; L3/R3 are unassigned.
 - Added keyboard/controller-accessible Theme to Info Quick Settings, named theme labels, aligned shortcut legends, and fixed keyboard letter-jump confirm/cancel; Setup and Refresh remain keyboard-only.
 - Improved Arcade list navigation by keeping the selection around three-fifths down the viewport during long scrolling, preserving visibility of upcoming games.

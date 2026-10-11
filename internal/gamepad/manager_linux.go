@@ -70,13 +70,22 @@ type holdState struct {
 	next    time.Time
 }
 
-type quitChordState struct {
-	viewPressed bool
-	menuPressed bool
-	consumed    bool
+// View is a modifier for both Quit and Rotate Display. The standalone
+// View/Menu/RB actions fire on release, so neither part of a chord leaks
+// through as a source switch, Credits screen, or Theme change.
+//
+// View + RB is an OPTIONAL EXTERNAL-UTILITY shortcut, not a normal Marchine
+// controller binding. To change/remove it, review handle() and chordButton()
+// together; changing the physical RB mapping alone is not sufficient.
+// Preserve the independent View + Menu Quit chord and release suppression.
+type shortcutChordState struct {
+	viewPressed  bool
+	menuPressed  bool
+	themePressed bool
+	consumed     bool
 }
 
-func (s *quitChordState) handle(action Action, pressed bool) (Action, bool) {
+func (s *shortcutChordState) handle(action Action, pressed bool) (Action, bool) {
 	var wasPressed bool
 	switch action {
 	case ActionView:
@@ -85,38 +94,45 @@ func (s *quitChordState) handle(action Action, pressed bool) (Action, bool) {
 	case ActionMenu:
 		wasPressed = s.menuPressed
 		s.menuPressed = pressed
+	case ActionTheme:
+		wasPressed = s.themePressed
+		s.themePressed = pressed
 	default:
 		return ActionNone, false
 	}
 
 	if pressed {
-		if s.viewPressed && s.menuPressed && !s.consumed {
-			s.consumed = true
-			return ActionQuit, true
+		if s.viewPressed {
+			switch {
+			case s.menuPressed && !s.consumed:
+				s.consumed = true
+				return ActionQuit, true
+			case s.themePressed && !s.menuPressed && (!s.consumed || !wasPressed):
+				// While View remains held, each fresh RB press can rotate
+				// again without firing the standalone Theme action.
+				s.consumed = true
+				return ActionRotateDisplay, true
+			}
 		}
 		return ActionNone, false
 	}
 
 	standalone := wasPressed && !s.consumed
-	s.resetIfReleased()
+	if !s.viewPressed && !s.menuPressed && !s.themePressed {
+		s.consumed = false
+	}
 	if standalone {
 		return action, true
 	}
 	return ActionNone, false
 }
 
-func (s *quitChordState) resetIfReleased() {
-	if !s.viewPressed && !s.menuPressed {
-		s.consumed = false
-	}
+func (s shortcutChordState) idle() bool {
+	return !s.viewPressed && !s.menuPressed && !s.themePressed
 }
 
-func (s quitChordState) idle() bool {
-	return !s.viewPressed && !s.menuPressed && !s.consumed
-}
-
-func quitChordAction(action Action) bool {
-	return action == ActionView || action == ActionMenu
+func chordButton(action Action) bool {
+	return action == ActionView || action == ActionMenu || action == ActionTheme
 }
 
 func (m *Manager) run() {
@@ -130,7 +146,7 @@ func (m *Manager) run() {
 
 	live := make(map[string]*Reader)
 	held := make(map[heldKey]holdState)
-	quitChords := make(map[string]*quitChordState)
+	chords := make(map[string]*shortcutChordState)
 
 	gone := make(chan readerExit, 64)
 	signals := make(chan inputSignal, 64)
@@ -142,7 +158,7 @@ func (m *Manager) run() {
 			}
 		}
 
-		delete(quitChords, path)
+		delete(chords, path)
 	}
 
 	emit := func(device Device, action Action) bool {
@@ -224,16 +240,16 @@ func (m *Manager) run() {
 			device := input.reader.Device()
 			action := input.signal.Action
 
-			if quitChordAction(action) {
-				state := quitChords[device.Path]
+			if chordButton(action) {
+				state := chords[device.Path]
 				if state == nil {
-					state = &quitChordState{}
-					quitChords[device.Path] = state
+					state = &shortcutChordState{}
+					chords[device.Path] = state
 				}
 
 				output, ok := state.handle(action, input.signal.Pressed)
 				if state.idle() {
-					delete(quitChords, device.Path)
+					delete(chords, device.Path)
 				}
 
 				if ok && !emit(device, output) {
