@@ -426,16 +426,63 @@ func (m *Model) cycleTheme() {
 }
 
 func (m *Model) toggleHideNonArcade() {
+	// Remember the selected game, not just its list index: hiding entries
+	// changes the indexes of games that remain visible.
+	before := m.filtered()
+	previousCursor := m.cursor
 	m.cfg.Arcade.HideJunk = !m.cfg.Arcade.HideJunk
+
+	// H changes the visibility of non-arcade games within the current
+	// category (including VERTICAL); it must not discard that selection.
+	// Only the broad ALL / ARCADE ONLY / NON - ARCADE views are replaced
+	// when toggling Hide Non-Arcade, as before.
+	switch m.filter {
+	case "", filterAll, filterArcade, filterNonArcade:
+		if m.cfg.Arcade.HideJunk {
+			m.filter = filterArcade
+		} else {
+			m.filter = ""
+		}
+	}
 	if m.cfg.Arcade.HideJunk {
-		m.filter = filterArcade
 		m.status = "HIDE NON-ARCADE · ON"
 	} else {
-		m.filter = ""
 		m.status = "HIDE NON-ARCADE · OFF"
 	}
 	m.categoryCursor = 0
+
+	// Keep the same game selected if it survived. If it was hidden, select
+	// the next surviving game in the old list order, or the previous one
+	// when there is no next game. The list renderer follows m.cursor.
+	after := m.filtered()
 	m.cursor = 0
+	if previousCursor >= 0 && previousCursor < len(before) && len(after) > 0 {
+		positions := make(map[string]int, len(after))
+		for i, game := range after {
+			positions[game.ID] = i
+		}
+
+		if i, ok := positions[before[previousCursor].ID]; ok {
+			m.cursor = i
+		} else {
+			found := false
+			for i := previousCursor + 1; i < len(before); i++ {
+				if next, ok := positions[before[i].ID]; ok {
+					m.cursor = next
+					found = true
+					break
+				}
+			}
+			if !found {
+				for i := previousCursor - 1; i >= 0; i-- {
+					if previous, ok := positions[before[i].ID]; ok {
+						m.cursor = previous
+						break
+					}
+				}
+			}
+		}
+	}
 	if m.demo {
 		return
 	}

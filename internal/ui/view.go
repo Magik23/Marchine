@@ -357,7 +357,40 @@ func (m Model) renderSourceTabs(width int) string {
 		)
 	}
 
+	// Show the number of games actually in the current library view, not
+	// the total ROM index or the count from the other source. The list panel
+	// uses this same filtered() result, so search, categories and Hide
+	// Non-Arcade are always reflected without maintaining a separate count.
+	if m.screen == screenLibrary && !(m.loading && m.source == library.SourceArcade && len(m.arcade) == 0) {
+		count := len(m.filtered())
+		label := "GAMES"
+		if count == 1 {
+			label = "GAME"
+		}
+		if strings.TrimSpace(m.search) != "" || (m.source == library.SourceArcade && m.filter != "" && m.filter != filterAll && (m.filter != filterArcade || !m.cfg.Arcade.HideJunk)) {
+			label = "MATCHES"
+			if count == 1 {
+				label = "MATCH"
+			}
+		}
+		counter := groupedCount(count) + " " + label
+		// Only display the counter if it can fit without truncating tabs
+		// or a current indexing/refreshing message.
+		if gap := width - lipgloss.Width(line) - lipgloss.Width(counter); gap >= 2 {
+			line += strings.Repeat(" ", gap) + muted.Render(counter)
+		}
+	}
+
 	return line
+}
+
+// groupedCount formats an integer for the compact source-bar counter.
+func groupedCount(count int) string {
+	digits := fmt.Sprintf("%d", count)
+	for i := len(digits) - 3; i > 0; i -= 3 {
+		digits = digits[:i] + "," + digits[i:]
+	}
+	return digits
 }
 
 func (m Model) renderCategories(width, height int) string {
@@ -821,14 +854,9 @@ func (m Model) renderList(width, height int) string {
 			}
 		}
 	} else {
-		b.WriteString(
-			muted.Render(
-				fmt.Sprintf(
-					"GAMES  //  %d",
-					len(items),
-				),
-			),
-		)
+		// Counts live in the source bar for both libraries. Keep this
+		// column header focused on the game names.
+		b.WriteString(muted.Render("NAME"))
 
 		b.WriteByte('\n')
 

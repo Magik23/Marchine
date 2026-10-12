@@ -200,6 +200,92 @@ func TestTopNavigationOnlyShowsSources(t *testing.T) {
 	}
 }
 
+func TestSourceBarCountTracksVisibleLibrary(t *testing.T) {
+	m := NewModel(config.Default(), "", false, true)
+	const width = 122
+
+	// GAMES has its own count, independent of the larger Arcade library.
+	m.source = library.SourceGames
+	gamesCount := len(m.filtered())
+	gamesBar := ansiEscape.ReplaceAllString(m.renderSourceTabs(width), "")
+	if want := groupedCount(gamesCount) + " GAMES"; !strings.HasSuffix(gamesBar, want) {
+		t.Fatalf("Games source bar = %q; want suffix %q", gamesBar, want)
+	}
+	if got := lipgloss.Width(m.renderSourceTabs(width)); got != width {
+		t.Fatalf("Games source bar width = %d; want %d", got, width)
+	}
+
+	m.toggleSource()
+	if m.source != library.SourceArcade {
+		t.Fatal("switching Games to Arcade failed")
+	}
+	arcadeCount := len(m.filtered())
+	arcadeBar := ansiEscape.ReplaceAllString(m.renderSourceTabs(width), "")
+	if want := groupedCount(arcadeCount) + " GAMES"; !strings.HasSuffix(arcadeBar, want) {
+		t.Fatalf("Arcade source bar = %q; want suffix %q", arcadeBar, want)
+	}
+	if arcadeCount == gamesCount {
+		t.Fatal("test setup requires different Arcade and Games counts")
+	}
+
+	// Filtering and searching must describe the currently displayed games.
+	m.filter = "SHMUPS"
+	if want := groupedCount(len(m.filtered())) + " MATCHES"; !strings.HasSuffix(ansiEscape.ReplaceAllString(m.renderSourceTabs(width), ""), want) {
+		t.Fatalf("category counter missing %q", want)
+	}
+	m.search = "no-such-mame-title-for-testing"
+	if got := ansiEscape.ReplaceAllString(m.renderSourceTabs(width), ""); !strings.HasSuffix(got, "0 MATCHES") {
+		t.Fatalf("empty search counter = %q", got)
+	}
+	m.search = ""
+	m.filter = ""
+	m.cfg.Arcade.HideJunk = false
+	if want := groupedCount(len(m.filtered())) + " GAMES"; !strings.HasSuffix(ansiEscape.ReplaceAllString(m.renderSourceTabs(width), ""), want) {
+		t.Fatalf("hide non-arcade OFF should show full library counter %q", want)
+	}
+
+	// Secondary screens keep the same uncluttered source tabs.
+	m.screen = screenInfo
+	if got := ansiEscape.ReplaceAllString(m.renderSourceTabs(width), ""); !strings.HasSuffix(got, " ]") {
+		t.Fatalf("Info source bar should end with the GAMES tab, got %q", got)
+	}
+	if got := lipgloss.Width(m.renderSourceTabs(width)); got >= width {
+		t.Fatalf("Info source tabs unexpectedly fill width with counter: got %d", got)
+	}
+}
+
+func TestSourceBarCountHandlesLargeAndEmptyLibraries(t *testing.T) {
+	m := NewModel(config.Default(), "", false, true)
+	m.source = library.SourceGames
+	m.games = make([]library.Game, 3574)
+	if got := ansiEscape.ReplaceAllString(m.renderSourceTabs(122), ""); !strings.HasSuffix(got, "3,574 GAMES") {
+		t.Fatalf("thousands separator lost: %q", got)
+	}
+	m.games = nil
+	if got := ansiEscape.ReplaceAllString(m.renderSourceTabs(122), ""); !strings.HasSuffix(got, "0 GAMES") {
+		t.Fatalf("empty library should show zero: %q", got)
+	}
+	m.games = []library.Game{{Name: "One game"}}
+	if got := ansiEscape.ReplaceAllString(m.renderSourceTabs(122), ""); !strings.HasSuffix(got, "1 GAME") {
+		t.Fatalf("single game should use singular label: %q", got)
+	}
+	m.search = "one"
+	if got := ansiEscape.ReplaceAllString(m.renderSourceTabs(122), ""); !strings.HasSuffix(got, "1 MATCH") {
+		t.Fatalf("single search hit should use singular label: %q", got)
+	}
+}
+
+func TestSourceBarDoesNotClaimZeroWhileArcadeIndexes(t *testing.T) {
+	m := NewModel(config.Default(), "", false, false)
+	m.source = library.SourceArcade
+	m.loading = true
+	m.arcade = nil
+	plain := ansiEscape.ReplaceAllString(m.renderSourceTabs(122), "")
+	if !strings.Contains(plain, "INDEXING ARCADE") || strings.Contains(plain, "0 GAMES") {
+		t.Fatalf("Arcade index counter should wait for library: %q", plain)
+	}
+}
+
 func TestArcadeCategoriesMoveOutOfTopRowAndIntoMenu(t *testing.T) {
 	cfg := config.Default()
 	m := NewModel(cfg, "", false, true)
@@ -442,6 +528,177 @@ func TestCompleteArcadeLibraryCanSeparateJunk(t *testing.T) {
 		if !g.NonArcade {
 			t.Fatalf("non-arcade filter leaked normal arcade entry %#v", g)
 		}
+	}
+}
+
+func TestHideNonArcadePreservesCategoryAndLiveCount(t *testing.T) {
+	m := NewModel(config.Default(), "", false, true)
+	m.source = library.SourceArcade
+	m.filter = "SHMUPS"
+	m.width, m.height = 140, 52
+
+	// Include a non-arcade entry in the same category to ensure H changes
+	// the contents of that category rather than switching to the full list.
+	m.arcade = append(m.arcade, library.Game{
+		ID: "mame:shmup-demo-nonarcade", Name: "Non-arcade Shmup",
+		Source: library.SourceArcade, Category: "SHMUPS", NonArcade: true,
+	})
+	arcadeOnly := len(m.filtered())
+	if arcadeOnly == 0 {
+		t.Fatal("test requires arcade shmups")
+	}
+
+	for _, want := range []struct {
+		action tea.KeyPressMsg
+		hidden bool
+		count  int
+	}{
+		{textKey("h"), false, arcadeOnly + 1},
+		{textKey("h"), true, arcadeOnly},
+	} {
+		next, _ := m.Update(want.action)
+		m = next.(Model)
+		if m.screen != screenLibrary || m.filter != "SHMUPS" || m.cfg.Arcade.HideJunk != want.hidden {
+			t.Fatalf("H lost category: screen=%v filter=%q hidden=%v", m.screen, m.filter, m.cfg.Arcade.HideJunk)
+		}
+		if got := len(m.filtered()); got != want.count {
+			t.Fatalf("SHMUPS count = %d; want %d", got, want.count)
+		}
+		for _, g := range m.filtered() {
+			if g.Category != "SHMUPS" || (want.hidden && g.NonArcade) {
+				t.Fatalf("SHMUPS filter leaked item: %#v", g)
+			}
+		}
+		if suffix := groupedCount(want.count) + " MATCHES"; !strings.HasSuffix(ansiEscape.ReplaceAllString(m.renderSourceTabs(122), ""), suffix) {
+			t.Fatalf("source bar did not update to %q", suffix)
+		}
+	}
+
+	// Controller LB and Info Quick Settings use the same toggle handler.
+	next, _ := m.Update(GamepadMsg{Action: gamepad.ActionHideNonArcade})
+	m = next.(Model)
+	if m.filter != "SHMUPS" || m.cfg.Arcade.HideJunk {
+		t.Fatal("controller LB should show non-arcade entries without leaving SHMUPS")
+	}
+	m.openInfo()
+	next, _ = m.Update(specialKey(tea.KeyEnter))
+	m = next.(Model)
+	if m.filter != "SHMUPS" || !m.cfg.Arcade.HideJunk {
+		t.Fatal("Info quick setting should preserve SHMUPS category")
+	}
+}
+
+// Hide Non-Arcade must not throw the cursor back to game one. Selection is
+// tracked by game ID because the list indexes change when entries are hidden.
+func TestHideNonArcadeKeepsSelectionAndFindsNearestSurvivor(t *testing.T) {
+	games := []library.Game{
+		{ID: "mame:a", Name: "A", Category: "SHMUPS", Source: library.SourceArcade},
+		{ID: "mame:b", Name: "B", Category: "SHMUPS", Source: library.SourceArcade, NonArcade: true},
+		{ID: "mame:c", Name: "C", Category: "SHMUPS", Source: library.SourceArcade},
+		{ID: "mame:d", Name: "D", Category: "SHMUPS", Source: library.SourceArcade, NonArcade: true},
+		{ID: "mame:e", Name: "E", Category: "SHMUPS", Source: library.SourceArcade},
+		{ID: "mame:f", Name: "F", Category: "SHMUPS", Source: library.SourceArcade, NonArcade: true},
+	}
+
+	makeModel := func(cursor int) Model {
+		m := NewModel(config.Default(), "", false, true)
+		m.source = library.SourceArcade
+		m.filter = "SHMUPS"
+		m.cfg.Arcade.HideJunk = false
+		m.arcade = append([]library.Game(nil), games...)
+		m.cursor = cursor
+		return m
+	}
+
+	for _, tc := range []struct {
+		name       string
+		start      int
+		wantID     string
+		wantCursor int
+	}{
+		{"surviving selection moves with its ID", 2, "mame:c", 1},
+		{"hidden selection advances to next game", 1, "mame:c", 1},
+		{"hidden selection prefers next over previous", 3, "mame:e", 2},
+		{"last hidden selection falls back to previous", 5, "mame:e", 2},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			m := makeModel(tc.start)
+			next, _ := m.Update(textKey("h"))
+			m = next.(Model)
+			if m.filter != "SHMUPS" || !m.cfg.Arcade.HideJunk {
+				t.Fatalf("H changed category or did not enable hiding: filter=%q hidden=%v", m.filter, m.cfg.Arcade.HideJunk)
+			}
+			g, ok := m.selected()
+			if !ok || g.ID != tc.wantID || m.cursor != tc.wantCursor {
+				t.Fatalf("selection after H = %#v (ok=%v cursor=%d); want %q at %d", g, ok, m.cursor, tc.wantID, tc.wantCursor)
+			}
+		})
+	}
+
+	// Turning Hide Non-Arcade back OFF must still point at the same game,
+	// even though earlier non-arcade entries are inserted back into the list.
+	m := makeModel(4) // E
+	m.toggleHideNonArcade()
+	m.toggleHideNonArcade()
+	g, ok := m.selected()
+	if !ok || g.ID != "mame:e" || m.cursor != 4 || m.cfg.Arcade.HideJunk {
+		t.Fatalf("selection not preserved after round trip: %#v, cursor=%d", g, m.cursor)
+	}
+
+	// Keyboard, controller, and Info Quick Settings share the same selection logic.
+	for _, tc := range []struct {
+		name   string
+		toggle func(Model) Model
+	}{
+		{"controller LB", func(m Model) Model {
+			next, _ := m.Update(GamepadMsg{Action: gamepad.ActionHideNonArcade})
+			return next.(Model)
+		}},
+		{"Info Quick Settings", func(m Model) Model {
+			m.openInfo()
+			next, _ := m.Update(specialKey(tea.KeyEnter))
+			return next.(Model)
+		}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			m := tc.toggle(makeModel(4))
+			g, ok := m.selected()
+			if !ok || g.ID != "mame:e" || m.cursor != 2 {
+				t.Fatalf("%s lost the selected game: %#v (cursor=%d)", tc.name, g, m.cursor)
+			}
+		})
+	}
+
+	// If the filter becomes empty, the cursor must remain a valid zero.
+	m = makeModel(1)
+	m.arcade = []library.Game{games[1], games[3]}
+	m.cursor = 1
+	m.toggleHideNonArcade()
+	if m.cursor != 0 || len(m.filtered()) != 0 {
+		t.Fatalf("empty filtered list left cursor=%d, count=%d", m.cursor, len(m.filtered()))
+	}
+}
+
+func TestHideNonArcadePreservesVerticalAndHandlesSpecialFilters(t *testing.T) {
+	m := NewModel(config.Default(), "", false, true)
+	m.source = library.SourceArcade
+	m.filter = filterVertical
+	m.toggleHideNonArcade()
+	if m.filter != filterVertical || m.cfg.Arcade.HideJunk {
+		t.Fatal("Hide Non-Arcade OFF should preserve VERTICAL")
+	}
+	m.toggleHideNonArcade()
+	if m.filter != filterVertical || !m.cfg.Arcade.HideJunk {
+		t.Fatal("Hide Non-Arcade ON should preserve VERTICAL")
+	}
+
+	// The special NON - ARCADE filter cannot coexist with hiding non-arcade
+	// entries. Continue showing the broad Arcade Only view instead.
+	m.cfg.Arcade.HideJunk = false
+	m.filter = filterNonArcade
+	m.toggleHideNonArcade()
+	if m.filter != filterArcade || !m.cfg.Arcade.HideJunk {
+		t.Fatalf("NON - ARCADE + hide should become ARCADE ONLY, got %q", m.filter)
 	}
 }
 

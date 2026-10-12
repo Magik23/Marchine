@@ -48,7 +48,7 @@ Marchine is developed on Arch Linux and fits naturally into keyboard-driven desk
 
 ## What Marchine does
 
-Marchine has two intentionally simple sources.
+Marchine has two intentionally simple sources. The source bar shows the number of games in the current view, updating with source changes, category filters, searches, and Hide Non-Arcade.
 
 ### GAMES
 
