@@ -1257,7 +1257,7 @@ func TestControllerRotationMissingUtilityIsNonfatal(t *testing.T) {
 func TestControllerRotationExecutesInstalledUtility(t *testing.T) {
 	dir := t.TempDir()
 	marker := filepath.Join(dir, "called")
-	script := filepath.Join(dir, "display-rotate")
+	script := filepath.Join(dir, "hypr-rotate")
 	// No shell interpolation: a tiny executable under the isolated test PATH.
 	if err := os.WriteFile(script, []byte("#!/bin/sh\nprintf x > "+marker+"\n"), 0o755); err != nil {
 		t.Fatal(err)
@@ -1277,6 +1277,6 @@ func TestControllerRotationExecutesInstalledUtility(t *testing.T) {
 		t.Fatalf("successful rotation status: %#v", updated)
 	}
 	if _, err := os.Stat(marker); err != nil {
-		t.Fatalf("display-rotate was not invoked: %v", err)
+		t.Fatalf("hypr-rotate was not invoked: %v", err)
 	}
 }

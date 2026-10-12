@@ -31,10 +31,10 @@ type displayRotateFinishedMsg struct {
 }
 
 // Optional companion utility: Marchine neither rotates monitors itself nor
-// requires display-rotate to be installed. The command runs asynchronously.
+// requires hypr-rotate to be installed. The command runs asynchronously.
 func rotateDisplayCmd() tea.Cmd {
 	return func() tea.Msg {
-		return displayRotateFinishedMsg{Err: exec.Command("display-rotate").Run()}
+		return displayRotateFinishedMsg{Err: exec.Command("hypr-rotate").Run()}
 	}
 }
 
