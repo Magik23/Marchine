@@ -1,10 +1,12 @@
 # Changelog
 
 ## Unreleased
+
+## 1.25.0
 - Preserve the selected game when toggling Hide Non-Arcade; if it becomes hidden, advance to the next visible game or fall back to the previous one instead of jumping to the top.
 - Keep the selected Arcade category (including SHMUPS and VERTICAL) when toggling Hide Non-Arcade; update the visible list and source-bar count in place.
 - Show a live game count at the right of the source bar, following the selected Games/Arcade source and any category, search, or Hide Non-Arcade filtering.
-- Added optional `View + RB` display rotation in Marchine via the independent `display-rotate` executable, with chord suppression, missing-command feedback, and no desktop dependencies.
+- Added optional `View + RB` display rotation in Marchine via the independent [Hypr Rotate](https://github.com/Magik23/hypr-rotate) (`hypr-rotate`) utility, with chord suppression, missing-command feedback, and no desktop dependencies.
 - Redesigned arcade-first controller navigation: Left/Right browse letters, View switches Arcade/Games, Menu opens Credits, LB toggles Hide Non-Arcade, RB cycles Theme, and `View + Menu` remains Quit; L3/R3 are unassigned.
 - Added keyboard/controller-accessible Theme to Info Quick Settings, named theme labels, aligned shortcut legends, and fixed keyboard letter-jump confirm/cancel; Setup and Refresh remain keyboard-only.
 - Improved Arcade list navigation by keeping the selection around three-fifths down the viewport during long scrolling, preserving visibility of upcoming games.
