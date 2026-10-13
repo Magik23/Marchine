@@ -35,6 +35,12 @@ func (m Model) updateGamepad(action gamepad.Action) (tea.Model, tea.Cmd) {
 		return m, rotateDisplayCmd()
 	}
 
+	// Zoom must remain available even when the terminal is too small to
+	// render the launcher. Foot processes the injected key combination.
+	if action == gamepad.ActionFontIncrease || action == gamepad.ActionFontDecrease {
+		return m, footFontZoomCmd(action == gamepad.ActionFontIncrease)
+	}
+
 	if m.width > 0 && m.height > 0 && terminalTooSmall(m.width, m.height) {
 		return m, nil
 	}

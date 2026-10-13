@@ -159,16 +159,19 @@ Marchine keeps setup, shortcuts, project information, and credits inside the TUI
 | `H` | LB | Hide Non-Arcade |
 | `T` | RB | Theme |
 | — | View + RB | Rotate Display |
+| `Ctrl++` / `Ctrl+-` | View + X / View + A | Increase / decrease Foot font (desktop on Hyprland) |
 | `Q` | View + Menu | Quit |
 | `/` | — | Search |
 | `S` | — | Setup |
 | `R` | — | Refresh Arcade Library |
 
-Standalone View switches sources; standalone Menu opens Credits; standalone RB changes Theme. All three fire on release so `View + Menu` quits and `View + RB` rotates without triggering any of their individual actions. Press either button first, then the other; release both before repeating a chord. L3/R3 have no launcher action. Setup, Refresh, and Search remain keyboard-only.
+Standalone View switches sources; standalone Menu opens Credits; standalone RB changes Theme. All three fire on release so `View + Menu` quits and `View + RB` rotates without triggering any of their individual actions. Press either button first, then the other; release both before repeating a chord. **For font zoom, hold View first, then tap X (larger) or A (smaller)**; normal X/A actions are suppressed during the chord. L3/R3 have no launcher action. Setup, Refresh, and Search remain keyboard-only.
 
 **Desktop icons:** The local installer installs the Marchine icons under `~/.local/share/icons/hicolor/`.
 
 **Running version:** The Info screen's source bar shows the compact release number derived from the running executable. Development commit details are hidden there; use `marchine --version` for the full build identifier.
+
+**Font zoom:** Foot already supports `Ctrl++`/`Ctrl+=` (larger), `Ctrl+-` (smaller) and `Ctrl+0` (reset). The View+X/A controller chords send those existing Foot zoom keys to the **focused Marchine desktop window on Hyprland**; they require `hyprctl` and do not change global Foot settings. Outside Hyprland or when run inside another terminal, use that terminal's own font shortcuts. No font size or window size is saved by Marchine. If the terminal falls below 124×48 cells, a resize hint replaces the full UI; View+A is still accepted to shrink the font.
 
 **Optional display rotation:** `View + RB` invokes the [Hypr Rotate](https://github.com/Magik23/hypr-rotate) executable (`hypr-rotate`) from `PATH` if installed. Marchine does not install, configure, or depend on that utility, Hyprland, or Omarchy. Without the utility, Marchine remains fully functional and displays a nonfatal status message. Keyboard display rotation is configured separately in the desktop environment (for example `Super + Alt + R` in Hyprland), not by Marchine.
 
@@ -190,7 +193,7 @@ S
 
 Setup lists **ARCADE** first, then **GAMES**. In GAMES, select **ADD GAME**, **EDIT GAME**, or **REMOVE GAME**. Add/Edit opens a four-field editor (Name, Executable, Arguments, Working Directory); Enter edits a field and Ctrl+S saves. Edit/Remove first shows the configured games, and Remove requires explicit Y confirmation. Entries update the Games library immediately; removing an entry never deletes files from disk.
 
-Executables can be native Linux binaries, scripts, or commands on `PATH`. For Windows `.exe` games, provide a compatibility runner as the executable (for example, `wine`) and the Windows game path as an argument. Arguments support quoted paths containing spaces. Use Ctrl+S in the game editor to save; Esc cancels. In Arcade Setup, Ctrl+S saves the Arcade settings; R refreshes the Arcade index using the saved settings **without saving pending edits**. GAMES entries update as soon as they are saved in Add/Edit; R does not refresh GAMES.
+Executables can be native Linux binaries, scripts, or commands on `PATH`. For Windows `.exe` games, provide a compatibility runner as the executable (for example, `wine`) and the Windows game path as an argument. Arguments support quoted paths containing spaces. While editing a field, use **Ctrl+Shift+V** to paste clipboard text in Foot. **Ctrl+S** applies the current text and saves immediately (no separate Enter required); Enter applies and moves to the next field, and Esc cancels the field edit. Foot uses Ctrl+Shift+C to copy selected terminal text. Marchine ignores Ctrl+C on all screens; use Q to quit. In Arcade Setup, Ctrl+S saves the Arcade settings; R refreshes the Arcade index using the saved settings **without saving pending edits**. GAMES entries update as soon as they are saved in Add/Edit; R does not refresh GAMES.
 
 The two primary Arcade fields are deliberately neutral:
 

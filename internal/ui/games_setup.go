@@ -118,7 +118,7 @@ func (m Model) updateGamePicker(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	}
 
 	switch key {
-	case "ctrl+c", "q":
+	case "q":
 		return m, tea.Quit
 	case "esc":
 		m.screen = screenSetup
@@ -158,12 +158,10 @@ func (m Model) updateGameEditor(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	key := msg.String()
 	if m.gameEditing {
 		switch key {
-		case "ctrl+c":
-			return m, tea.Quit
 		case "esc":
 			m.gameEditing = false
 			m.gameBuffer = ""
-		case "enter":
+		case "enter", "ctrl+s":
 			value := strings.TrimSpace(m.gameBuffer)
 			switch m.gameField {
 			case gameFieldName:
@@ -182,8 +180,13 @@ func (m Model) updateGameEditor(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 			}
 			m.gameEditing = false
 			m.gameBuffer = ""
-			m.gameField = (m.gameField + 1) % gameFieldCount
-			m.status = "FIELD UPDATED · CTRL+S TO SAVE GAME"
+			if key == "ctrl+s" {
+				// Save the just-edited value too, without requiring Enter first.
+				m.saveConfiguredGame()
+			} else {
+				m.gameField = (m.gameField + 1) % gameFieldCount
+				m.status = "FIELD UPDATED · CTRL+S TO SAVE GAME"
+			}
 		case "backspace":
 			if m.gameBuffer != "" {
 				_, size := utf8.DecodeLastRuneInString(m.gameBuffer)
@@ -200,7 +203,7 @@ func (m Model) updateGameEditor(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	}
 
 	switch key {
-	case "ctrl+c", "q":
+	case "q":
 		return m, tea.Quit
 	case "esc":
 		if m.gameIndex >= 0 {
@@ -460,7 +463,7 @@ func (m Model) renderGameEditor(width, height int) string {
 		}
 		b.WriteString("\n\n")
 	}
-	b.WriteString(muted.Render("Enter edits/applies · Ctrl+S saves · Esc cancels"))
+	b.WriteString(muted.Render("Enter applies · Ctrl+S saves · Ctrl+Shift+V pastes · Esc cancels"))
 	if strings.HasPrefix(m.status, "GAME ") {
 		b.WriteByte('\n')
 		b.WriteString(warn.Render(trim(m.status, innerW)))
@@ -478,7 +481,7 @@ func (m Model) renderGamePickerFooter(width int) string {
 
 func (m Model) renderGameEditorFooter(width int) string {
 	if m.gameEditing {
-		return "ENTER APPLY  ·  ESC CANCEL FIELD  ·  CTRL+U CLEAR"
+		return "ENTER APPLY  ·  CTRL+S SAVE  ·  CTRL+SHIFT+V PASTE  ·  ESC CANCEL"
 	}
 	return "↑↓/TAB FIELD  ·  ENTER EDIT  ·  CTRL+S SAVE GAME  ·  ESC CANCEL"
 }

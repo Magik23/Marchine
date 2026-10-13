@@ -217,6 +217,12 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		return m, restoreMarchineWindowCmd(msg.RestoreFullscreen)
 
+	case footFontZoomFinishedMsg:
+		if msg.Err != nil {
+			m.status = "FONT ZOOM REQUIRES HYPRLAND: " + msg.Err.Error()
+		}
+		return m, nil
+
 	case displayRotateFinishedMsg:
 		switch {
 		case msg.Err == nil:
@@ -249,6 +255,18 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m.updateGamepad(msg.Action)
 
 	case tea.KeyPressMsg:
+		// Foot uses Ctrl+Shift+C/V for clipboard operations. Ignore Ctrl+C
+		// throughout Marchine rather than interpreting it as Quit. Handle it
+		// before screen dispatch, including when the terminal is too small.
+		if msg.String() == "ctrl+c" {
+			if (m.screen == screenSetup && m.setupEditing) ||
+				(m.screen == screenGameEditor && m.gameEditing) ||
+				(m.screen == screenLibrary && m.searchMode) {
+				m.status = "PASTE WITH CTRL+SHIFT+V"
+			}
+			return m, nil
+		}
+
 		// Keyboard index navigation must match controller preview/confirm/cancel.
 		if m.letterJump != "" && m.screen == screenLibrary && !m.searchMode {
 			switch msg.String() {
@@ -275,7 +293,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		// actions. Resizing restores the exact previous state.
 		if m.width > 0 && m.height > 0 && terminalTooSmall(m.width, m.height) {
 			switch msg.String() {
-			case "ctrl+c", "q":
+			case "q":
 				return m, tea.Quit
 			}
 			return m, nil
@@ -316,7 +334,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		key := msg.String()
 		switch key {
-		case "ctrl+c", "q":
+		case "q":
 			return m, tea.Quit
 		case "i", "I", "ctrl+k":
 			m.openInfo()
@@ -529,7 +547,7 @@ func (m Model) updateCategories(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	}
 
 	switch msg.String() {
-	case "ctrl+c", "q":
+	case "q":
 		return m, tea.Quit
 	case "esc", "c":
 		m.screen = screenLibrary
@@ -609,7 +627,7 @@ func (m *Model) openInfo() {
 
 func (m Model) updateInfo(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	switch msg.String() {
-	case "ctrl+c", "q":
+	case "q":
 		return m, tea.Quit
 	case "up", "k", "shift+tab":
 		m.infoSetting = (m.infoSetting - 1 + infoSettingCount) % infoSettingCount
@@ -644,7 +662,7 @@ func (m *Model) openCredits() {
 
 func (m Model) updateCredits(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	switch msg.String() {
-	case "ctrl+c", "q":
+	case "q":
 		return m, tea.Quit
 	case "i", "I", "ctrl+k":
 		m.openInfo()
@@ -673,7 +691,7 @@ func (m *Model) openSetup() {
 func (m Model) updateSetup(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	key := msg.String()
 	switch key {
-	case "ctrl+c", "q":
+	case "q":
 		return m, tea.Quit
 	case "esc", "s":
 		m.screen = screenLibrary
@@ -734,13 +752,11 @@ func (m Model) updateSetup(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 func (m Model) updateSetupEdit(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	key := msg.String()
 	switch key {
-	case "ctrl+c":
-		return m, tea.Quit
 	case "esc":
 		m.setupEditing = false
 		m.setupBuffer = ""
 		return m, nil
-	case "enter":
+	case "enter", "ctrl+s":
 		if m.setupField == setupFieldMAME {
 			m.setupMAME = strings.TrimSpace(m.setupBuffer)
 		} else {
@@ -748,6 +764,9 @@ func (m Model) updateSetupEdit(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		}
 		m.setupEditing = false
 		m.setupBuffer = ""
+		if key == "ctrl+s" {
+			return m.saveSetup()
+		}
 		m.status = "FIELD UPDATED · CTRL+S TO SAVE"
 		return m, nil
 	case "backspace":
@@ -827,8 +846,6 @@ func (m Model) updateSearch(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		m.searchMode = false
 		m.status = "READY"
 		return m, nil
-	case "ctrl+c":
-		return m, tea.Quit
 	case "backspace":
 		if m.search != "" {
 			_, size := utf8.DecodeLastRuneInString(m.search)

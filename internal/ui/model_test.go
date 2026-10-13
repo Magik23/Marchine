@@ -1280,3 +1280,83 @@ func TestControllerRotationExecutesInstalledUtility(t *testing.T) {
 		t.Fatalf("hypr-rotate was not invoked: %v", err)
 	}
 }
+
+// Ctrl+C is not a Marchine quit shortcut. Foot provides terminal clipboard
+// shortcuts; Ctrl+C should be harmless in every screen and editing mode.
+func TestCtrlCNeverQuitsMarchine(t *testing.T) {
+	ctrlC := tea.KeyPressMsg(tea.Key{Code: 'c', Mod: tea.ModCtrl})
+	cases := []struct {
+		name    string
+		prepare func(*Model)
+	}{
+		{name: "library"},
+		{name: "library search", prepare: func(m *Model) {
+			m.searchMode = true
+			m.search = "unfinished"
+		}},
+		{name: "letter jump", prepare: func(m *Model) {
+			m.letterJump = "A"
+		}},
+		{name: "small terminal", prepare: func(m *Model) {
+			m.width = minTerminalWidth - 1
+			m.height = minTerminalHeight
+		}},
+		{name: "categories", prepare: func(m *Model) {
+			m.screen = screenCategories
+		}},
+		{name: "info", prepare: func(m *Model) {
+			m.screen = screenInfo
+		}},
+		{name: "credits", prepare: func(m *Model) {
+			m.screen = screenCredits
+		}},
+		{name: "arcade setup", prepare: func(m *Model) {
+			m.openSetup()
+		}},
+		{name: "arcade field", prepare: func(m *Model) {
+			m.openSetup()
+			m.setupEditing = true
+			m.setupBuffer = "/tmp/unfinished"
+		}},
+		{name: "game picker", prepare: func(m *Model) {
+			m.screen = screenGamePicker
+			m.cfg.Games = []config.GameConfig{{Name: "Test", Command: "true"}}
+		}},
+		{name: "game removal confirmation", prepare: func(m *Model) {
+			m.screen = screenGamePicker
+			m.gameDeletePending = true
+			m.cfg.Games = []config.GameConfig{{Name: "Test", Command: "true"}}
+		}},
+		{name: "game editor", prepare: func(m *Model) {
+			m.openGameEditor(-1)
+		}},
+		{name: "game field", prepare: func(m *Model) {
+			m.openGameEditor(-1)
+			m.gameEditing = true
+			m.gameBuffer = "/tmp/unfinished"
+		}},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			m := NewModel(config.Default(), "", false, true)
+			m.width = minTerminalWidth
+			m.height = minTerminalHeight
+			if tc.prepare != nil {
+				tc.prepare(&m)
+			}
+			before := m
+			next, cmd := m.Update(ctrlC)
+			after := next.(Model)
+			if cmd != nil {
+				t.Fatal("Ctrl+C unexpectedly produced a command")
+			}
+			if after.screen != before.screen || after.setupEditing != before.setupEditing ||
+				after.gameEditing != before.gameEditing || after.setupBuffer != before.setupBuffer ||
+				after.gameBuffer != before.gameBuffer || after.search != before.search ||
+				after.letterJump != before.letterJump || after.gameDeletePending != before.gameDeletePending {
+				t.Fatal("Ctrl+C changed screen, in-progress text, or selection")
+			}
+		})
+	}
+}

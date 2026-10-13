@@ -235,3 +235,80 @@ func TestNewGameScreensMaintainFooterAtMinimumGeometry(t *testing.T) {
 		}
 	}
 }
+
+// Bracketed terminal paste is a dedicated Bubble Tea message. Ctrl+S must
+// commit the active input before saving, without a separate Enter press.
+func TestGameEditorPasteAndSaveActiveField(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "config.toml")
+	m := NewModel(config.Default(), path, false, false)
+	m.openGameEditor(-1)
+	m.gameDraft.Name = "Marchine Test"
+	m.gameField = gameFieldCommand
+	m.gameEditing = true
+	m.gameBuffer = ""
+
+	next, cmd := m.Update(tea.PasteMsg{Content: "/home/user/My Games/marchine"})
+	m = next.(Model)
+	if cmd != nil || m.gameBuffer != "/home/user/My Games/marchine" {
+		t.Fatalf("paste was not inserted into active field: %q", m.gameBuffer)
+	}
+
+	// Ctrl+C must never quit an active editor or lose the unsaved field.
+	next, cmd = m.updateGameEditor(tea.KeyPressMsg(tea.Key{Code: 'c', Mod: tea.ModCtrl}))
+	m = next.(Model)
+	if cmd != nil || !m.gameEditing || m.gameBuffer != "/home/user/My Games/marchine" {
+		t.Fatal("Ctrl+C exited or erased active game field")
+	}
+
+	next, cmd = m.updateGameEditor(tea.KeyPressMsg(tea.Key{Code: 's', Mod: tea.ModCtrl}))
+	m = next.(Model)
+	if cmd != nil || m.screen != screenSetup {
+		t.Fatalf("Ctrl+S in active field did not save: screen=%d", m.screen)
+	}
+	saved, err := config.Load(path)
+	if err != nil || len(saved.Games) != 1 || saved.Games[0].Command != "/home/user/My Games/marchine" {
+		t.Fatalf("active game field was not persisted: %#v, %v", saved.Games, err)
+	}
+}
+
+func TestGameEditorInvalidArgumentsStayEditableOnSave(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "config.toml")
+	m := NewModel(config.Default(), path, false, false)
+	m.openGameEditor(-1)
+	m.gameDraft.Name = "Test"
+	m.gameDraft.Command = "code"
+	m.gameField = gameFieldArgs
+	m.gameEditing = true
+	m.gameBuffer = `"unterminated`
+	next, cmd := m.updateGameEditor(tea.KeyPressMsg(tea.Key{Code: 's', Mod: tea.ModCtrl}))
+	m = next.(Model)
+	if cmd != nil || m.screen != screenGameEditor || !m.gameEditing || m.gameBuffer != `"unterminated` {
+		t.Fatal("invalid arguments unexpectedly saved or discarded active input")
+	}
+	if !strings.Contains(m.status, "GAME ARGUMENTS:") {
+		t.Fatalf("expected validation error, got %q", m.status)
+	}
+}
+
+func TestArcadeSetupPasteAndSaveActiveField(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "config.toml")
+	m := NewModel(config.Default(), path, false, false)
+	m.openSetup()
+	m.setupField = setupFieldMAME
+	m.setupEditing = true
+	m.setupBuffer = ""
+	next, cmd := m.Update(tea.PasteMsg{Content: "/opt/mame custom/mame"})
+	m = next.(Model)
+	if cmd != nil || m.setupBuffer != "/opt/mame custom/mame" {
+		t.Fatalf("Arcade field paste failed: %q", m.setupBuffer)
+	}
+	next, cmd = m.updateSetupEdit(tea.KeyPressMsg(tea.Key{Code: 's', Mod: tea.ModCtrl}))
+	m = next.(Model)
+	if cmd != nil || m.setupEditing || m.cfg.Arcade.MAMECommand != "/opt/mame custom/mame" {
+		t.Fatal("Ctrl+S in Arcade field did not apply and save")
+	}
+	saved, err := config.Load(path)
+	if err != nil || saved.Arcade.MAMECommand != "/opt/mame custom/mame" {
+		t.Fatalf("Arcade paste was not persisted: %#v, %v", saved.Arcade, err)
+	}
+}

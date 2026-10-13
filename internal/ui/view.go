@@ -1477,8 +1477,9 @@ func (m Model) renderSetupFooter(width int) string {
 		full := strings.Join(
 			[]string{
 				item("ENTER", "APPLY"),
+				item("CTRL+S", "SAVE"),
+				item("CTRL+SHIFT+V", "PASTE"),
 				item("ESC", "CANCEL"),
-				item("CTRL+U", "CLEAR"),
 			},
 			sep,
 		)
@@ -1580,8 +1581,8 @@ func (m Model) renderInfo(width, height int) string {
 		keyboardLine("S", "Setup"),
 		keyboardLine("H", "Hide Non-Arcade"),
 		keyboardLine("T", "Theme"),
-		keyboardLine("I", "Info"),
-		keyboardLine("O", "Credits"),
+		keyboardLine("I / O", "Info / Credits"),
+		keyboardLine("Ctrl+ + / - / 0", "Font + / - / Reset"),
 		keyboardLine("Q", "Quit"),
 	}, "\n")
 
@@ -1597,9 +1598,9 @@ func (m Model) renderInfo(width, height int) string {
 		controllerLine("Y", "Categories"),
 		controllerLine("View", "Games / Arcade"),
 		controllerLine("Menu", "Credits"),
-		controllerLine("LB", "Hide Non-Arcade"),
-		controllerLine("RB", "Theme"),
+		controllerLine("LB / RB", "Hide Non-Arcade / Theme"),
 		controllerLine("View + RB", "Rotate Display"),
+		controllerLine("View + X / A", "Font Larger / Smaller"),
 		controllerLine("LT / RT", "Prev / Next Letter"),
 		controllerLine("View + Menu", "Quit"),
 	}, "\n")
@@ -1873,13 +1874,10 @@ func (m Model) renderTerminalTooSmall(
 	message := accent.Render(
 		"Terminal too small.",
 	) + "\n\n" +
-		text.Render(
-			fmt.Sprintf(
-				"Resize to at least %d × %d.",
-				minTerminalWidth,
-				minTerminalHeight,
-			),
-		)
+		text.Render(fmt.Sprintf(
+			"Need at least %d × %d.\nReduce font: Ctrl+- or View+A.\nOr enlarge the window.",
+			minTerminalWidth, minTerminalHeight,
+		))
 
 	boxW := min(
 		48,

@@ -15,6 +15,8 @@ const (
 	ActionBack
 	ActionQuit
 	ActionRotateDisplay
+	ActionFontIncrease
+	ActionFontDecrease
 
 	ActionSearch
 

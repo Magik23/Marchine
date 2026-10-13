@@ -70,9 +70,10 @@ type holdState struct {
 	next    time.Time
 }
 
-// View is a modifier for both Quit and Rotate Display. The standalone
-// View/Menu/RB actions fire on release, so neither part of a chord leaks
-// through as a source switch, Credits screen, or Theme change.
+// View modifies Menu (Quit), RB (Rotate) and X/A (Font zoom).
+// View/Menu/RB remain release-triggered for standalone actions.
+// X/A are immediate when pressed alone, but are intercepted if View is
+// already held. Always press View first for the font shortcuts.
 //
 // View + RB is an OPTIONAL EXTERNAL-UTILITY shortcut, not a normal Marchine
 // controller binding. To change/remove it, review handle() and chordButton()
@@ -125,6 +126,25 @@ func (s *shortcutChordState) handle(action Action, pressed bool) (Action, bool) 
 		return action, true
 	}
 	return ActionNone, false
+}
+
+// Return handled=true whenever View is held, even on button release, so
+// normal Info (X) / Confirm (A) never run during font zoom.
+func (s *shortcutChordState) handleFontButton(action Action, pressed bool) (output Action, emit bool, handled bool) {
+	if !s.viewPressed {
+		return ActionNone, false, false
+	}
+	if !pressed {
+		return ActionNone, false, true
+	}
+	s.consumed = true
+	switch action {
+	case ActionInfo: // Marchine X / BTN_NORTH
+		return ActionFontIncrease, true, true
+	case ActionConfirm: // Xbox A / BTN_SOUTH
+		return ActionFontDecrease, true, true
+	}
+	return ActionNone, false, false
 }
 
 func (s shortcutChordState) idle() bool {
@@ -239,6 +259,20 @@ func (m *Manager) run() {
 		case input := <-signals:
 			device := input.reader.Device()
 			action := input.signal.Action
+
+			// A/X normally fire on press. When View is held, intercept them
+			// before the ordinary action path (including releases).
+			if action == ActionConfirm || action == ActionInfo {
+				if state := chords[device.Path]; state != nil {
+					output, shouldEmit, handled := state.handleFontButton(action, input.signal.Pressed)
+					if handled {
+						if shouldEmit && !emit(device, output) {
+							return
+						}
+						continue
+					}
+				}
+			}
 
 			if chordButton(action) {
 				state := chords[device.Path]
