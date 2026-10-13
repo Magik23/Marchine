@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"regexp"
 	"strings"
 
 	tea "charm.land/bubbletea/v2"
@@ -52,6 +53,14 @@ func (m Model) View() tea.View {
 		footer := m.renderSetupFooter(contentWidth)
 		bodyH := max(12, contentHeight-lipgloss.Height(header)-lipgloss.Height(tabs)-lipgloss.Height(footer)-3)
 		parts = []string{header, tabs, m.renderSetup(contentWidth, bodyH), footer}
+	case screenGamePicker:
+		footer := m.renderGamePickerFooter(contentWidth)
+		bodyH := max(12, contentHeight-lipgloss.Height(header)-lipgloss.Height(tabs)-lipgloss.Height(footer)-3)
+		parts = []string{header, tabs, m.renderGamePicker(contentWidth, bodyH), footer}
+	case screenGameEditor:
+		footer := m.renderGameEditorFooter(contentWidth)
+		bodyH := max(12, contentHeight-lipgloss.Height(header)-lipgloss.Height(tabs)-lipgloss.Height(footer)-3)
+		parts = []string{header, tabs, m.renderGameEditor(contentWidth, bodyH), footer}
 	case screenInfo:
 		footer := m.renderInfoFooter(contentWidth)
 		bodyH := max(12, contentHeight-lipgloss.Height(header)-lipgloss.Height(tabs)-lipgloss.Height(footer)-3)
@@ -381,7 +390,36 @@ func (m Model) renderSourceTabs(width int) string {
 		}
 	}
 
+	// Keep the version in the existing source bar, on Info only.
+	// Never overlap source tabs or other status information.
+	if m.screen == screenInfo && strings.TrimSpace(m.Version) != "" {
+		label := compactVersion(m.Version)
+		if gap := width - lipgloss.Width(line) - lipgloss.Width(label); gap >= 2 {
+			line += strings.Repeat(" ", gap) + muted.Render(label)
+		}
+	}
+
 	return line
+}
+
+// Recognize Go build versions derived from git describe.
+// Keep commit hashes and dirty status in --version, not in the UI.
+var gitDescribeVersion = regexp.MustCompile(
+	`^(\d+\.\d+\.\d+)-\d+-g[0-9a-f]+(?:-dirty)?$`,
+)
+
+func compactVersion(raw string) string {
+	v := strings.TrimPrefix(strings.TrimSpace(raw), "v")
+	if v == "" || v == "dev" {
+		return "dev"
+	}
+	if match := gitDescribeVersion.FindStringSubmatch(v); match != nil {
+		return "v" + match[1]
+	}
+	if strings.HasSuffix(v, "-dirty") {
+		return "v" + strings.TrimSuffix(v, "-dirty")
+	}
+	return "v" + v
 }
 
 // groupedCount formats an integer for the compact source-bar counter.
@@ -473,22 +511,7 @@ func (m Model) renderCategories(width, height int) string {
 
 	b.WriteByte('\n')
 
-	categoryMode := "COMPLETE LIBRARY"
-
-	if m.cfg.Arcade.HideJunk {
-		categoryMode = "NON-ARCADE HIDDEN"
-	}
-
-	b.WriteString(
-		muted.Render(
-			fmt.Sprintf(
-				"%d indexed games · CatVer/local metadata · %s",
-				len(m.arcade),
-				categoryMode,
-			),
-		),
-	)
-
+	// Retain header spacing without redundant metadata.
 	b.WriteByte('\n')
 
 	b.WriteString(
@@ -1325,20 +1348,38 @@ func (m Model) renderSetup(width, height int) string {
 	)
 
 	b.WriteString("\n\n")
-
-	b.WriteString(
-		muted.Render(
-			"Enter edits the selected field. Empty primary path = MAME rompath auto-detect; extra config paths are preserved.",
-		),
-	)
-
+	b.WriteString(muted.Render("Ctrl+S saves Arcade settings · R refreshes Arcade."))
 	b.WriteByte('\n')
+	b.WriteString(muted.Render("Empty primary ROM path uses MAME auto-detect; extra paths remain intact."))
+	b.WriteString("\n\n")
 
-	b.WriteString(
-		muted.Render(
-			"Ctrl+S saves. R saves and immediately refreshes the Arcade library.",
-		),
-	)
+	// ARCADE stays first, matching Marchine's source order.
+	b.WriteString(accent.Render("GAMES SETUP"))
+	b.WriteString(muted.Render(fmt.Sprintf("  // %d CONFIGURED", len(m.cfg.Games))))
+	b.WriteByte('\n')
+	for _, action := range []struct {
+		field int
+		label string
+	}{
+		{setupFieldAddGame, "ADD GAME"},
+		{setupFieldEditGame, "EDIT GAME"},
+		{setupFieldRemoveGame, "REMOVE GAME"},
+	} {
+		row := "  " + pad(action.label, innerW-2)
+		if m.setupField == action.field {
+			row = "> " + pad(action.label, innerW-2)
+			b.WriteString(selected.Render(row))
+		} else {
+			b.WriteString(text.Render(row))
+		}
+		b.WriteByte('\n')
+	}
+	b.WriteByte('\n')
+	b.WriteString(muted.Render("Ctrl+S saves a game in Add/Edit."))
+	if strings.HasPrefix(m.status, "GAME ") || strings.HasPrefix(m.status, "NO GAMES") {
+		b.WriteByte('\n')
+		b.WriteString(muted.Render(trim(m.status, innerW)))
+	}
 
 	return panel.
 		Width(max(50, width)).
@@ -1451,12 +1492,18 @@ func (m Model) renderSetupFooter(width int) string {
 			item("ESC", "CANCEL")
 	}
 
+	if m.setupField >= setupFieldAddGame {
+		return item("↑↓/TAB", "SELECT") + sep +
+			item("ENTER", "OPEN") + sep +
+			item("ESC", "RETURN")
+	}
+
 	full := strings.Join(
 		[]string{
 			item("↑↓/TAB", "FIELD"),
 			item("ENTER", "EDIT"),
 			item("CTRL+S", "SAVE"),
-			item("R", "SAVE+REFRESH"),
+			item("R", "REFRESH"),
 			item("T", "THEME"),
 			item("I", "INFO"),
 			item("ESC", "RETURN"),

@@ -111,7 +111,8 @@ func (m *Model) moveGamepadCursor(delta int) {
 }
 
 func (m Model) gamepadKey(action gamepad.Action) (tea.KeyPressMsg, bool) {
-	if m.screen == screenSetup && m.setupEditing {
+	if (m.screen == screenSetup && m.setupEditing) ||
+		(m.screen == screenGameEditor && m.gameEditing) {
 		switch action {
 		case gamepad.ActionConfirm:
 			return specialKey(tea.KeyEnter), true

@@ -74,6 +74,7 @@ func main() {
 	}
 
 	model := ui.NewModel(cfg, path, *rescan, *demo)
+	model.Version = version
 	p := tea.NewProgram(model)
 
 	stopGamepads := startGamepads(p)

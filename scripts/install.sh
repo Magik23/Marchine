@@ -12,6 +12,12 @@ DESKTOP_FILE="$DESKTOP_DIR/marchine.desktop"
 make build
 install -Dm755 dist/marchine "$MARCHINE_BIN"
 
+# Install desktop icons to the standard user icon directory.
+for size in 128 256 512; do
+  install -Dm644 "assets/icons/marchine-${size}.png" \
+    "$HOME/.local/share/icons/hicolor/${size}x${size}/apps/marchine.png"
+done
+
 mkdir -p "$CONFIG_DIR"
 if [[ ! -f "$CONFIG_FILE" ]]; then
   install -m644 config.example.toml "$CONFIG_FILE"

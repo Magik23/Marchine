@@ -867,7 +867,7 @@ func TestSetupPreservesAdditionalROMPaths(t *testing.T) {
 	m := NewModel(cfg, path, false, false)
 	m.loading = false
 	m.setupROM = "/roms/replacement"
-	next, cmd := m.saveSetup(false)
+	next, cmd := m.saveSetup()
 	if cmd != nil {
 		t.Fatal("save-only Setup should not start a command")
 	}
@@ -903,7 +903,7 @@ func TestSetupEmptyROMPathRestoresAutoDetect(t *testing.T) {
 	m := NewModel(cfg, path, false, false)
 	m.loading = false
 	m.setupROM = ""
-	next, _ := m.saveSetup(false)
+	next, _ := m.saveSetup()
 	m = next.(Model)
 	if len(m.cfg.Arcade.ROMPaths) != 0 {
 		t.Fatalf("empty primary path should restore auto-detect, got %#v", m.cfg.Arcade.ROMPaths)
@@ -940,7 +940,7 @@ func TestSetupNormalizesRuntimeLaunchPathsImmediately(t *testing.T) {
 	m.setupMAME = "~/bin/mame"
 	m.setupROM = "$HOME/roms"
 
-	next, cmd := m.saveSetup(false)
+	next, cmd := m.saveSetup()
 	if cmd != nil {
 		t.Fatal("save-only Setup should not start a command")
 	}

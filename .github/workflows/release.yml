@@ -69,6 +69,11 @@ jobs:
           install -m644 README.md "release/$ROOT/README.md"
           install -m644 config.example.toml "release/$ROOT/config.example.toml"
 
+          for size in 128 256 512; do
+            install -Dm644 "assets/icons/marchine-${size}.png" \
+              "release/$ROOT/share/icons/hicolor/${size}x${size}/apps/marchine.png"
+          done
+
           while IFS= read -r license_file; do
             rel="${license_file#vendor/}"
             mkdir -p "release/$ROOT/THIRD_PARTY_LICENSES/$(dirname "$rel")"

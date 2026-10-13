@@ -166,6 +166,10 @@ Marchine keeps setup, shortcuts, project information, and credits inside the TUI
 
 Standalone View switches sources; standalone Menu opens Credits; standalone RB changes Theme. All three fire on release so `View + Menu` quits and `View + RB` rotates without triggering any of their individual actions. Press either button first, then the other; release both before repeating a chord. L3/R3 have no launcher action. Setup, Refresh, and Search remain keyboard-only.
 
+**Desktop icons:** The local installer installs the Marchine icons under `~/.local/share/icons/hicolor/`.
+
+**Running version:** The Info screen's source bar shows the compact release number derived from the running executable. Development commit details are hidden there; use `marchine --version` for the full build identifier.
+
 **Optional display rotation:** `View + RB` invokes the [Hypr Rotate](https://github.com/Magik23/hypr-rotate) executable (`hypr-rotate`) from `PATH` if installed. Marchine does not install, configure, or depend on that utility, Hyprland, or Omarchy. Without the utility, Marchine remains fully functional and displays a nonfatal status message. Keyboard display rotation is configured separately in the desktop environment (for example `Super + Alt + R` in Hyprland), not by Marchine.
 
 **For developers modifying bindings:** `View + RB` is a separate, optional external-command chord — not an ordinary Marchine button assignment. Its handling lives in `internal/gamepad/manager_linux.go` (`shortcutChordState` and `chordButton`), while `internal/ui/gamepad.go` dispatches `ActionRotateDisplay` and `internal/ui/model.go` executes `hypr-rotate`. To remap or remove this integration, update those paths together with the Info legend and associated tests. Simply uninstalling `hypr-rotate` prevents rotation but does **not** disable chord interception: `View + RB` will still suppress the usual View and RB actions.
@@ -183,6 +187,10 @@ Open Setup with:
 ```text
 S
 ```
+
+Setup lists **ARCADE** first, then **GAMES**. In GAMES, select **ADD GAME**, **EDIT GAME**, or **REMOVE GAME**. Add/Edit opens a four-field editor (Name, Executable, Arguments, Working Directory); Enter edits a field and Ctrl+S saves. Edit/Remove first shows the configured games, and Remove requires explicit Y confirmation. Entries update the Games library immediately; removing an entry never deletes files from disk.
+
+Executables can be native Linux binaries, scripts, or commands on `PATH`. For Windows `.exe` games, provide a compatibility runner as the executable (for example, `wine`) and the Windows game path as an argument. Arguments support quoted paths containing spaces. Use Ctrl+S in the game editor to save; Esc cancels. In Arcade Setup, Ctrl+S saves the Arcade settings; R refreshes the Arcade index using the saved settings **without saving pending edits**. GAMES entries update as soon as they are saved in Add/Edit; R does not refresh GAMES.
 
 The two primary Arcade fields are deliberately neutral:
 

@@ -46,6 +46,8 @@ const (
 	screenInfo
 	screenCredits
 	screenCategories
+	screenGamePicker
+	screenGameEditor
 )
 
 const (
@@ -58,6 +60,9 @@ const (
 const (
 	setupFieldMAME = iota
 	setupFieldROM
+	setupFieldAddGame
+	setupFieldEditGame
+	setupFieldRemoveGame
 	setupFieldCount
 )
 
@@ -68,6 +73,7 @@ const (
 )
 
 type Model struct {
+	Version          string
 	letterJump       string
 	letterJumpOrigin int
 	cfg              config.Config
@@ -98,6 +104,15 @@ type Model struct {
 	setupMAME      string
 	setupROM       string
 
+	gamePickerAction  int
+	gamePickerCursor  int
+	gameDeletePending bool
+	gameIndex         int // config.Games index; -1 means Add
+	gameDraft         config.GameConfig
+	gameField         int
+	gameEditing       bool
+	gameBuffer        string
+
 	categoryCursor int
 	infoSetting    int
 }
@@ -127,20 +142,7 @@ func NewModel(cfg config.Config, configPath string, forceRescan, demo bool) Mode
 		setupMAME:   setupMAME,
 		setupROM:    setupROM,
 	}
-	for i, g := range cfg.Games {
-		if strings.TrimSpace(g.Name) == "" || strings.TrimSpace(g.Command) == "" {
-			continue
-		}
-		m.games = append(m.games, library.Game{
-			ID:         fmt.Sprintf("game:%d", i),
-			Name:       g.Name,
-			Source:     library.SourceGames,
-			Command:    g.Command,
-			Args:       append([]string(nil), g.Args...),
-			WorkingDir: g.WorkingDir,
-		})
-	}
-	sort.SliceStable(m.games, func(i, j int) bool { return strings.ToLower(m.games[i].Name) < strings.ToLower(m.games[j].Name) })
+	m.reloadGames()
 
 	if demo {
 		m.arcade = demoArcade()
@@ -233,6 +235,10 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.setupBuffer += msg.Content
 			return m, nil
 		}
+		if m.screen == screenGameEditor && m.gameEditing {
+			m.gameBuffer += msg.Content
+			return m, nil
+		}
 		if m.screen == screenLibrary && m.searchMode {
 			m.search += msg.Content
 			m.cursor = 0
@@ -277,6 +283,12 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		if m.screen == screenCategories {
 			return m.updateCategories(msg)
+		}
+		if m.screen == screenGamePicker {
+			return m.updateGamePicker(msg)
+		}
+		if m.screen == screenGameEditor {
+			return m.updateGameEditor(msg)
 		}
 		if m.screen == screenInfo {
 			return m.updateInfo(msg)
@@ -671,18 +683,50 @@ func (m Model) updateSetup(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	case "down", "j", "tab":
 		m.setupField = (m.setupField + 1) % setupFieldCount
 	case "enter":
-		m.setupEditing = true
-		if m.setupField == setupFieldMAME {
-			m.setupBuffer = m.setupMAME
-		} else {
-			m.setupBuffer = m.setupROM
+		switch m.setupField {
+		case setupFieldMAME, setupFieldROM:
+			m.setupEditing = true
+			if m.setupField == setupFieldMAME {
+				m.setupBuffer = m.setupMAME
+			} else {
+				m.setupBuffer = m.setupROM
+			}
+		case setupFieldAddGame:
+			m.openGameEditor(-1)
+		case setupFieldEditGame:
+			m.openGamePicker(setupFieldEditGame)
+		case setupFieldRemoveGame:
+			m.openGamePicker(setupFieldRemoveGame)
 		}
 	case "ctrl+s":
-		return m.saveSetup(false)
+		if m.setupField >= setupFieldAddGame {
+			m.status = "SELECT ADD, EDIT OR REMOVE GAME"
+			return m, nil
+		}
+		return m.saveSetup()
 	case "t", "ctrl+t":
 		m.cycleTheme()
-	case "r":
-		return m.saveSetup(true)
+	case "r", "R":
+		// Refresh uses the saved Arcade configuration; it never saves
+		// pending edits or reloads the manually configured Games list.
+		if m.setupField >= setupFieldAddGame {
+			return m, nil
+		}
+		if m.demo {
+			m.status = "DEMO MODE · REFRESH DISABLED"
+			return m, nil
+		}
+		if m.loading {
+			m.status = "ARCADE REFRESH ALREADY IN PROGRESS"
+			return m, nil
+		}
+		if !m.cfg.Arcade.Enabled {
+			m.status = "ARCADE REFRESH DISABLED"
+			return m, nil
+		}
+		m.loading = true
+		m.status = "REFRESHING ARCADE LIBRARY…"
+		return m, m.loadArcadeCmd(true)
 	}
 	return m, nil
 }
@@ -722,7 +766,8 @@ func (m Model) updateSetupEdit(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
-func (m Model) saveSetup(refresh bool) (tea.Model, tea.Cmd) {
+// Save the Arcade settings only; refreshing the index is a separate action.
+func (m Model) saveSetup() (tea.Model, tea.Cmd) {
 	if m.demo {
 		m.status = "DEMO MODE · SETTINGS NOT WRITTEN"
 		return m, nil
@@ -771,18 +816,7 @@ func (m Model) saveSetup(refresh bool) (tea.Model, tea.Cmd) {
 	// Saving launch identity should take effect immediately, even if the user
 	// chooses not to refresh metadata.
 	mame.ApplyLaunchConfig(m.arcade, m.cfg.Arcade)
-	m.status = "SETUP SAVED"
-
-	if refresh {
-		if m.loading {
-			m.status = "SETUP SAVED · REFRESH ALREADY IN PROGRESS"
-			return m, nil
-		}
-		m.loading = true
-		m.source = library.SourceArcade
-		m.status = "SETUP SAVED · REFRESHING ARCADE LIBRARY…"
-		return m, m.loadArcadeCmd(true)
-	}
+	m.status = "ARCADE SETTINGS SAVED"
 	return m, nil
 }
 

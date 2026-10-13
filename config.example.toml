@@ -35,6 +35,8 @@ hide_clones = true
 hide_preliminary = true
 hide_junk = true
 
+# Games can also be added, edited and removed in Marchine: S → GAMES.
+# Removing a Games entry never deletes the executable.
 # Flat launch targets. No scraping, ratings, artwork, publisher database, etc.
 # Display name is independent from the actual executable/command.
 
