@@ -55,7 +55,12 @@ Use a real MAME installation and a small known ROM set to verify:
 6. MAME games launch without Marchine-injected rotation flags and follow MAME's own display configuration;
 7. temporarily removing/unmounting the ROM source keeps a valid saved library and reports the degraded state;
 8. `marchine --doctor --rescan` exits nonzero for a real operational diagnostic failure;
-9. GAMES entries launch and return to Marchine cleanly.
+9. GAMES entries can be added, edited, removed, saved and reloaded after restarting; removal never deletes the executable;
+10. the GAMES source launches both a directly configured executable and an executable with arguments/working directory, and returns to Marchine according to the launched process's behavior;
+11. Foot `Ctrl+Shift+V` paste works in active game/Arcade fields and `Ctrl+S` saves the active value without pressing Enter first;
+12. `Ctrl+C` does not quit Marchine, while `Q` and View + Menu still do;
+13. saving Arcade settings and refreshing Arcade are separate operations; Setup `R` doesn't save pending edits or refresh GAMES;
+14. View + X / View + A adjust Foot font size on a focused Marchine Hyprland desktop window, preserving standalone View/X/A behaviors and previous View chords.
 
 ## UI smoke checks
 
@@ -66,7 +71,9 @@ Verify at and above **124×48**:
 - embedded fightstick remains fixed **62×22** terminal-cell geometry;
 - all four themes remain legible;
 - Info, Credits, Categories, Setup, and Library share the expected footer baseline;
-- below 124×48, only the terminal-too-small view is shown.
+- below 124×48, only the terminal-too-small recovery message is shown; View+A can still decrease font size;
+- Info's source bar shows a compact version label, without Git commit hashes;
+- Setup displays ARCADE before GAMES, and game picker/editor footers remain visible at the minimum geometry.
 
 ## Release artifact gate
 
@@ -79,7 +86,7 @@ make build VERSION=X.Y.Z
 test "$(./dist/marchine --version)" = "marchine X.Y.Z"
 ```
 
-The GitHub release workflow is responsible for the final archive and SHA-256 file.
+The GitHub release workflow is responsible for the final archive and SHA-256 file. After publication, verify the archive contains the executable at `marchine-X.Y.Z-linux-amd64/marchine` plus all three icon files under its `share/icons/hicolor/` tree. Check the README's prebuilt installation instructions against that exact layout, then apply `docs/releases/vX.Y.Z.md` as the GitHub Release body (the workflow currently generates notes by default).
 
 ## AUR gate
 

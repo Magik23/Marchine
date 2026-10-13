@@ -2,6 +2,20 @@
 
 ## Unreleased
 
+## 1.26.0
+- Completed the in-app **GAMES** setup workflow: add, edit and remove named native executables, scripts and external launch commands; launch targets retain optional arguments and working directories.
+- Save new/edited GAMES entries atomically to `config.toml`, update the visible GAMES library immediately, and preserve configured games across restarts. Edit/Remove use a picker, with a Y/N deletion confirmation; removing an entry never deletes executable files.
+- Added quoted-argument parsing for paths with spaces, round-trip formatting, and validation for incomplete or invalid game entries; arguments are passed to the executable directly rather than interpreted by a shell.
+- Reorganized Setup **ARCADE first, GAMES second**. `Ctrl+S` saves Arcade settings, whereas `R` refreshes the Arcade index without saving pending changes; GAMES needs no refresh after saving.
+- Improved both Arcade and GAMES text editing: Foot `Ctrl+Shift+V` paste support and guidance; `Ctrl+S` commits and saves the active field without requiring Enter; input errors preserve editable text.
+- Disabled `Ctrl+C` as a Marchine quit shortcut on all screens to avoid accidental exits; continue using `Q` or `View + Menu` to quit.
+- Added controller font zoom using **View + X** (larger) and **View + A** (smaller), via Foot's existing zoom shortcuts for the focused Marchine window on Hyprland. Standard keyboard zoom still works; font changes remain session-only.
+- Improved the below-minimum **124×48** terminal warning with font/window-size recovery instructions; controller font reduction remains available when the normal UI cannot render.
+- Added a compact running version indicator at the right of the Info screen's source bar; detailed Git build identifiers remain available through `marchine --version`.
+- Removed redundant indexed-game/CatVer/hide-mode text from the Categories header and polished the Setup headings, instructions and removal confirmation.
+- Fixed user-local icon installation (128/256/512 px), and included the same icons in future GitHub release archives.
+- Added focused tests for game management/persistence, Arcade refresh separation, clipboard and active-field saving, Ctrl+C handling, controller chords, font zoom and minimum terminal layout.
+
 ## 1.25.0
 - Preserve the selected game when toggling Hide Non-Arcade; if it becomes hidden, advance to the next visible game or fall back to the previous one instead of jumping to the top.
 - Keep the selected Arcade category (including SHMUPS and VERTICAL) when toggling Hide Non-Arcade; update the visible list and source-bar count in place.

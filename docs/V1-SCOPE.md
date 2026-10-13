@@ -5,8 +5,8 @@ The filename is retained for project history; this document describes the curren
 ## In scope
 
 - Terminal-native TUI.
-- GAMES + ARCADE sources.
-- Flat generic game-launcher entries.
+- ARCADE + GAMES sources, with ARCADE first in the interface.
+- Flat generic executable-launcher entries managed through in-app Add/Edit/Remove Setup actions or manually in TOML.
 - Automatic MAME Arcade indexing from local data.
 - Name/year/manufacturer from MAME XML.
 - MAME launching leaves display orientation and rotation under MAME's own configuration.

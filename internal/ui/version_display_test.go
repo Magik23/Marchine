@@ -36,8 +36,8 @@ func TestInfoSourceBarShowsVersion(t *testing.T) {
 	if !strings.Contains(tabs, "v1.25.0") {
 		t.Fatal("Info source bar does not show compact version")
 	}
-	if lipgloss.Width(tabs) > 122 {
-		t.Fatal("Version overflows the source bar")
+	if got := lipgloss.Width(tabs); got != 120 {
+		t.Fatalf("Info version should leave two columns to the right: width = %d", got)
 	}
 	if strings.Contains(m.renderSourceTabs(25), "v1.25.0") {
 		t.Fatal("Version should hide when space is insufficient")

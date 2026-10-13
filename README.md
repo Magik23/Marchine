@@ -22,17 +22,26 @@ The current GitHub release workflow publishes a **Linux amd64** archive and SHA-
 2. Download:
    - `marchine-X.Y.Z-linux-amd64.tar.gz`
    - `marchine-X.Y.Z-linux-amd64.tar.gz.sha256`
-3. Verify and install:
+3. Verify and install the executable and its icons (replace `1.26.0` with the version you downloaded):
 
 ```bash
-sha256sum -c marchine-X.Y.Z-linux-amd64.tar.gz.sha256
-tar -xzf marchine-X.Y.Z-linux-amd64.tar.gz
+VERSION=1.26.0
+ARCHIVE="marchine-${VERSION}-linux-amd64"
 
-install -Dm755 marchine "$HOME/.local/bin/marchine"
+sha256sum -c "${ARCHIVE}.tar.gz.sha256"
+tar -xzf "${ARCHIVE}.tar.gz"
+install -Dm755 "${ARCHIVE}/marchine" "$HOME/.local/bin/marchine"
 
-marchine --init-config
-marchine
+for size in 128 256 512; do
+  install -Dm644 "${ARCHIVE}/share/icons/hicolor/${size}x${size}/apps/marchine.png" \
+    "$HOME/.local/share/icons/hicolor/${size}x${size}/apps/marchine.png"
+done
+
+"$HOME/.local/bin/marchine" --init-config
+"$HOME/.local/bin/marchine"
 ```
+
+The prebuilt archive includes icons but **does not automatically install a desktop entry**. The source installer below creates a Foot desktop launcher where Foot is available. Running Marchine directly in an existing terminal is supported without Foot.
 
 If `~/.local/bin` is not already on your `PATH`, add it through your shell configuration.
 
@@ -50,21 +59,6 @@ Marchine is developed on Arch Linux and fits naturally into keyboard-driven desk
 
 Marchine has two intentionally simple sources. The source bar shows the number of games in the current view, updating with source changes, category filters, searches, and Hide Non-Arcade.
 
-### GAMES
-
-A flat list of things you can execute.
-
-Display identity stays separate from launch identity:
-
-```toml
-[[games]]
-name = "OpenTyrian"
-command = "opentyrian"
-args = []
-```
-
-You can also launch scripts, native executables, Steam commands, or other local targets.
-
 ### ARCADE
 
 The current automatic Arcade driver is **MAME**.
@@ -81,6 +75,21 @@ R-Type                   1987   Irem
 ```
 
 Marchine does not rename, move, repair, or delete ROMs.
+
+### GAMES
+
+A flat list of native Linux executables, scripts, or commands on `PATH`. **Use `S` → GAMES → ADD GAME** to populate it directly from the launcher. EDIT GAME and REMOVE GAME manage existing entries without touching files on disk.
+
+Each entry has a display name, executable, optional arguments, and optional working directory. Arguments are passed to the chosen executable, without shell interpretation. For example, this manually configured entry is equivalent to one created through Setup:
+
+```toml
+[[games]]
+name = "OpenTyrian"
+command = "opentyrian"
+args = []
+```
+
+Games added or edited in Setup appear in GAMES immediately and persist across restarts; no library refresh is required. You can also launch Steam commands or use a compatibility runner such as Wine for Windows executables, provided those tools are installed separately.
 
 ## Fast startup, explicit refresh
 
@@ -159,7 +168,7 @@ Marchine keeps setup, shortcuts, project information, and credits inside the TUI
 | `H` | LB | Hide Non-Arcade |
 | `T` | RB | Theme |
 | — | View + RB | Rotate Display |
-| `Ctrl++` / `Ctrl+-` | View + X / View + A | Increase / decrease Foot font (desktop on Hyprland) |
+| `Ctrl++` / `Ctrl+-` / `Ctrl+0` | View + X / View + A | Increase / decrease / reset Foot font (controller: zoom only) |
 | `Q` | View + Menu | Quit |
 | `/` | — | Search |
 | `S` | — | Setup |
@@ -167,7 +176,7 @@ Marchine keeps setup, shortcuts, project information, and credits inside the TUI
 
 Standalone View switches sources; standalone Menu opens Credits; standalone RB changes Theme. All three fire on release so `View + Menu` quits and `View + RB` rotates without triggering any of their individual actions. Press either button first, then the other; release both before repeating a chord. **For font zoom, hold View first, then tap X (larger) or A (smaller)**; normal X/A actions are suppressed during the chord. L3/R3 have no launcher action. Setup, Refresh, and Search remain keyboard-only.
 
-**Desktop icons:** The local installer installs the Marchine icons under `~/.local/share/icons/hicolor/`.
+**Desktop icons:** The source installer puts Marchine icons in `~/.local/share/icons/hicolor/` and creates a desktop entry when Foot is available. Release archives include the same 128/256/512 px icons; see the prebuilt install commands above.
 
 **Running version:** The Info screen's source bar shows the compact release number derived from the running executable. Development commit details are hidden there; use `marchine --version` for the full build identifier.
 
@@ -265,13 +274,14 @@ make build
 ./dist/marchine --demo
 ```
 
-Install the locally built binary:
+For the **full local desktop installation** (binary, default config if absent, icons, and a Foot desktop entry when Foot is installed), run:
 
 ```bash
-make install
-marchine --init-config
-marchine
+./scripts/install.sh
+"$HOME/.local/bin/marchine" --version
 ```
+
+The installer preserves an existing `~/.config/marchine/config.toml`. If you want only the binary with no desktop integration, `make install` remains available.
 
 Marchine vendors its Go dependencies, so normal build and test targets can use the committed dependency snapshot.
 

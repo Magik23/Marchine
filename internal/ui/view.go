@@ -390,11 +390,12 @@ func (m Model) renderSourceTabs(width int) string {
 		}
 	}
 
-	// Keep the version in the existing source bar, on Info only.
+	// Keep the Info version inside the frame with a two-cell right inset.
 	// Never overlap source tabs or other status information.
 	if m.screen == screenInfo && strings.TrimSpace(m.Version) != "" {
 		label := compactVersion(m.Version)
-		if gap := width - lipgloss.Width(line) - lipgloss.Width(label); gap >= 2 {
+		const rightInset = 2
+		if gap := width - lipgloss.Width(line) - lipgloss.Width(label) - rightInset; gap >= 2 {
 			line += strings.Repeat(" ", gap) + muted.Render(label)
 		}
 	}

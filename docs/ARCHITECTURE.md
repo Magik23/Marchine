@@ -31,7 +31,7 @@ command + args + optional working directory
 
 Marchine uses Bubble Tea process handoff so the child application owns the terminal while running. Marchine resumes when the child exits.
 
-GAMES entries come directly from user config. ARCADE entries store durable local metadata plus MAME launch identity.
+GAMES entries come directly from the user's `[[games]]` configuration. In-app Add/Edit/Remove operations use the existing atomic config save and rebuild the current GAMES list immediately; they do not index game files, depend on MAME, or delete executables. Arguments are parsed into a direct process argument vector, not evaluated by a shell. ARCADE entries store durable local metadata plus MAME launch identity.
 
 ## Arcade driver
 
