@@ -61,6 +61,10 @@ func (m Model) View() tea.View {
 		footer := m.renderGameEditorFooter(contentWidth)
 		bodyH := max(12, contentHeight-lipgloss.Height(header)-lipgloss.Height(tabs)-lipgloss.Height(footer)-3)
 		parts = []string{header, tabs, m.renderGameEditor(contentWidth, bodyH), footer}
+	case screenGameImportPath, screenGameImportPreview:
+		footer := m.renderGameImportFooter(contentWidth)
+		bodyH := max(12, contentHeight-lipgloss.Height(header)-lipgloss.Height(tabs)-lipgloss.Height(footer)-3)
+		parts = []string{header, tabs, m.renderGameImport(contentWidth, bodyH), footer}
 	case screenInfo:
 		footer := m.renderInfoFooter(contentWidth)
 		bodyH := max(12, contentHeight-lipgloss.Height(header)-lipgloss.Height(tabs)-lipgloss.Height(footer)-3)
@@ -599,39 +603,10 @@ func (m Model) renderCategories(width, height int) string {
 }
 
 func (m Model) renderCategoriesFooter(width int) string {
-	t := m.theme
-
-	key := lipgloss.NewStyle().
-		Foreground(t.Accent).
-		Bold(true)
-
-	text := lipgloss.NewStyle().
-		Foreground(t.Text)
-
-	muted := lipgloss.NewStyle().
-		Foreground(t.Muted)
-
-	item := func(k, label string) string {
-		return key.Render(k) +
-			text.Render(" "+label)
-	}
-
-	line := strings.Join(
-		[]string{
-			item("↑↓", "SELECT"),
-			item("ENTER", "APPLY"),
-			item("ESC", "RETURN"),
-		},
-		muted.Render("  ·  "),
+	return m.renderShortcutHintsFit(width,
+		[]shortcutHint{{"↑↓", "SELECT"}, {"ENTER", "APPLY"}, {"ESC", "RETURN"}, {"S", "SETUP"}},
+		[]shortcutHint{{"ENTER", "APPLY"}, {"ESC", "RETURN"}},
 	)
-
-	if lipgloss.Width(line) <= width {
-		return line
-	}
-
-	return item("ENTER", "APPLY") +
-		muted.Render("  ·  ") +
-		item("ESC", "RETURN")
 }
 
 func (m Model) renderSearch(width int) string {
@@ -1094,78 +1069,17 @@ func (m Model) renderDetail(width, height int) string {
 }
 
 func (m Model) renderFooter(width int) string {
-	t := m.theme
-
-	key := lipgloss.NewStyle().
-		Foreground(t.Accent).
-		Bold(true)
-
-	muted := lipgloss.NewStyle().
-		Foreground(t.Muted)
-
-	text := lipgloss.NewStyle().
-		Foreground(t.Text)
-
-	item := func(k, label string) string {
-		return key.Render(k) +
-			text.Render(" "+label)
-	}
-
-	quit := item("Q", "QUIT")
-
-	full := []string{
-		item("ENTER", "PLAY"),
-		item("/", "SEARCH"),
-		item("TAB", "SOURCE"),
-	}
-
+	full := []shortcutHint{{"ENTER", "PLAY"}, {"/", "SEARCH"}, {"TAB", "SOURCE"}}
 	if m.source == library.SourceArcade {
-		full = append(
-			full,
-			item("C", "CATEGORIES"),
-		)
+		full = append(full, shortcutHint{"C", "CATEGORIES"})
 	}
-
-	full = append(
+	full = append(full, shortcutHint{"I", "INFO"}, shortcutHint{"Q", "QUIT"})
+	return m.renderShortcutHintsFit(width,
 		full,
-		item("I", "INFO"),
-		quit,
+		[]shortcutHint{{"ENTER", "PLAY"}, {"/", "SEARCH"}, {"TAB", "SOURCE"}, {"I", "INFO"}, {"Q", "QUIT"}},
+		[]shortcutHint{{"ENTER", "PLAY"}, {"I", "INFO"}, {"Q", "QUIT"}},
+		[]shortcutHint{{"I", "INFO"}, {"Q", "QUIT"}},
 	)
-
-	medium := []string{
-		item("ENTER", "PLAY"),
-		item("/", "SEARCH"),
-		item("TAB", "SOURCE"),
-		item("I", "INFO"),
-		quit,
-	}
-
-	compact := []string{
-		item("ENTER", "PLAY"),
-		item("I", "INFO"),
-		quit,
-	}
-
-	separator := muted.Render("  ·  ")
-
-	for _, items := range [][]string{
-		full,
-		medium,
-		compact,
-	} {
-		line := strings.Join(
-			items,
-			separator,
-		)
-
-		if lipgloss.Width(line) <= width {
-			return line
-		}
-	}
-
-	return item("I", "INFO") +
-		separator +
-		quit
 }
 
 func (m Model) renderSetup(width, height int) string {
@@ -1349,7 +1263,7 @@ func (m Model) renderSetup(width, height int) string {
 	)
 
 	b.WriteString("\n\n")
-	b.WriteString(muted.Render("Ctrl+S saves Arcade settings · R refreshes Arcade."))
+	b.WriteString(m.renderShortcutHints(shortcutHint{"Ctrl+S", "saves Arcade settings"}, shortcutHint{"R", "refreshes Arcade."}))
 	b.WriteByte('\n')
 	b.WriteString(muted.Render("Empty primary ROM path uses MAME auto-detect; extra paths remain intact."))
 	b.WriteString("\n\n")
@@ -1363,6 +1277,7 @@ func (m Model) renderSetup(width, height int) string {
 		label string
 	}{
 		{setupFieldAddGame, "ADD GAME"},
+		{setupFieldImportGame, "IMPORT GAMES"},
 		{setupFieldEditGame, "EDIT GAME"},
 		{setupFieldRemoveGame, "REMOVE GAME"},
 	} {
@@ -1376,8 +1291,8 @@ func (m Model) renderSetup(width, height int) string {
 		b.WriteByte('\n')
 	}
 	b.WriteByte('\n')
-	b.WriteString(muted.Render("Ctrl+S saves a game in Add/Edit."))
-	if strings.HasPrefix(m.status, "GAME ") || strings.HasPrefix(m.status, "NO GAMES") {
+	b.WriteString(m.renderShortcutHints(shortcutHint{"Ctrl+S", "saves a game in Add/Edit."}))
+	if strings.HasPrefix(m.status, "GAME ") || strings.HasPrefix(m.status, "NO GAMES") || strings.HasPrefix(m.status, "IMPORT ") {
 		b.WriteByte('\n')
 		b.WriteString(muted.Render(trim(m.status, innerW)))
 	}
@@ -1455,89 +1370,22 @@ func (m Model) renderSetupField(
 }
 
 func (m Model) renderSetupFooter(width int) string {
-	t := m.theme
-
-	key := lipgloss.NewStyle().
-		Foreground(t.Accent).
-		Bold(true)
-
-	text := lipgloss.NewStyle().
-		Foreground(t.Text)
-
-	muted := lipgloss.NewStyle().
-		Foreground(t.Muted)
-
-	item := func(k, label string) string {
-		return key.Render(k) +
-			text.Render(" "+label)
-	}
-
-	sep := muted.Render("  ·  ")
-
 	if m.setupEditing {
-		full := strings.Join(
-			[]string{
-				item("ENTER", "APPLY"),
-				item("CTRL+S", "SAVE"),
-				item("CTRL+SHIFT+V", "PASTE"),
-				item("ESC", "CANCEL"),
-			},
-			sep,
+		return m.renderShortcutHintsFit(width,
+			[]shortcutHint{{"ENTER", "APPLY"}, {"CTRL+S", "SAVE"}, {"CTRL+SHIFT+V", "PASTE"}, {"ESC", "CANCEL"}},
+			[]shortcutHint{{"ENTER", "APPLY"}, {"ESC", "CANCEL"}},
 		)
-
-		if lipgloss.Width(full) <= width {
-			return full
-		}
-
-		return item("ENTER", "APPLY") +
-			sep +
-			item("ESC", "CANCEL")
 	}
-
 	if m.setupField >= setupFieldAddGame {
-		return item("↑↓/TAB", "SELECT") + sep +
-			item("ENTER", "OPEN") + sep +
-			item("ESC", "RETURN")
+		return m.renderShortcutHints(
+			shortcutHint{"↑↓/TAB", "SELECT"}, shortcutHint{"ENTER", "OPEN"}, shortcutHint{"ESC", "RETURN"},
+		)
 	}
-
-	full := strings.Join(
-		[]string{
-			item("↑↓/TAB", "FIELD"),
-			item("ENTER", "EDIT"),
-			item("CTRL+S", "SAVE"),
-			item("R", "REFRESH"),
-			item("T", "THEME"),
-			item("I", "INFO"),
-			item("ESC", "RETURN"),
-		},
-		sep,
+	return m.renderShortcutHintsFit(width,
+		[]shortcutHint{{"↑↓/TAB", "FIELD"}, {"ENTER", "EDIT"}, {"CTRL+S", "SAVE"}, {"R", "REFRESH"}, {"T", "THEME"}, {"I", "INFO"}, {"ESC", "RETURN"}},
+		[]shortcutHint{{"ENTER", "EDIT"}, {"CTRL+S", "SAVE"}, {"R", "REFRESH"}, {"T", "THEME"}, {"I", "INFO"}, {"ESC", "RETURN"}},
+		[]shortcutHint{{"CTRL+S", "SAVE"}, {"I", "INFO"}, {"ESC", "RETURN"}},
 	)
-
-	if lipgloss.Width(full) <= width {
-		return full
-	}
-
-	medium := strings.Join(
-		[]string{
-			item("ENTER", "EDIT"),
-			item("CTRL+S", "SAVE"),
-			item("R", "REFRESH"),
-			item("T", "THEME"),
-			item("I", "INFO"),
-			item("ESC", "RETURN"),
-		},
-		sep,
-	)
-
-	if lipgloss.Width(medium) <= width {
-		return medium
-	}
-
-	return item("CTRL+S", "SAVE") +
-		sep +
-		item("I", "INFO") +
-		sep +
-		item("ESC", "RETURN")
 }
 
 func (m Model) renderInfo(width, height int) string {
@@ -1567,9 +1415,7 @@ func (m Model) renderInfo(width, height int) string {
 
 	emu := "The setup field is deliberately called EMULATOR EXECUTABLE. The current automatic Arcade driver is MAME, but the executable + ROM-path model is intentionally reusable for future command-line emulator drivers.\n\nMarchine keeps MAME's local category metadata and filters the installed library without becoming an emulator encyclopedia."
 
-	keyboardLine := func(control, label string) string {
-		return fmt.Sprintf("%-18s%s", control, label)
-	}
+	keyboardLine := m.renderShortcutReference
 	shortcuts := strings.Join([]string{
 		keyboardLine("↑ / ↓, J / K", "Navigate"),
 		keyboardLine("Enter", "Launch / Apply"),
@@ -1587,9 +1433,7 @@ func (m Model) renderInfo(width, height int) string {
 		keyboardLine("Q", "Quit"),
 	}, "\n")
 
-	controllerLine := func(control, label string) string {
-		return fmt.Sprintf("%-18s%s", control, label)
-	}
+	controllerLine := m.renderShortcutReference
 	controller := strings.Join([]string{
 		controllerLine("D-Pad / LS ↑↓", "Navigate"),
 		controllerLine("D-Pad / LS ←→", "Prev / Next Letter"),
@@ -1667,9 +1511,9 @@ func (m Model) renderInfo(width, height int) string {
 			Width(rightW).
 			Render(
 				accent.Render("KEYBOARD SHORTCUTS") + "\n" +
-					text.Render(shortcuts) + "\n" +
+					shortcuts + "\n" +
 					accent.Render("CONTROLLER") + "\n" +
-					text.Render(controller),
+					controller,
 			)
 
 		body := lipgloss.JoinHorizontal(
@@ -1690,42 +1534,18 @@ func (m Model) renderInfo(width, height int) string {
 			"EMULATOR MODEL",
 			emu,
 		) + "\n\n" +
-		section(
-			"KEYBOARD SHORTCUTS",
-			shortcuts,
-		) + "\n\n" +
-		section(
-			"CONTROLLER",
-			controller,
-		) + "\n\n" +
+		accent.Render("KEYBOARD SHORTCUTS") + "\n\n" + shortcuts + "\n\n" +
+		accent.Render("CONTROLLER") + "\n\n" + controller + "\n\n" +
 		quickSettingsBlock
 
 	return panel.Render(body)
 }
 
 func (m Model) renderInfoFooter(width int) string {
-	t := m.theme
-
-	key := lipgloss.NewStyle().
-		Foreground(t.Accent).
-		Bold(true)
-
-	text := lipgloss.NewStyle().
-		Foreground(t.Text)
-
-	muted := lipgloss.NewStyle().
-		Foreground(t.Muted)
-
-	item := func(k, label string) string {
-		return key.Render(k) + text.Render(" "+label)
-	}
-
-	return strings.Join([]string{
-		item("↑ / ↓", "SELECT"),
-		item("ENTER", "APPLY"),
-		item("ESC", "RETURN"),
-		item("O", "CREDITS"),
-	}, muted.Render("  ·  "))
+	return m.renderShortcutHints(
+		shortcutHint{"↑ / ↓", "SELECT"}, shortcutHint{"ENTER", "APPLY"}, shortcutHint{"ESC", "RETURN"},
+		shortcutHint{"S", "SETUP"}, shortcutHint{"O", "CREDITS"},
+	)
 }
 
 func (m Model) renderCredits(width, height int) string {
@@ -1814,26 +1634,9 @@ func (m Model) renderCredits(width, height int) string {
 }
 
 func (m Model) renderCreditsFooter(width int) string {
-	t := m.theme
-
-	key := lipgloss.NewStyle().
-		Foreground(t.Accent).
-		Bold(true)
-
-	text := lipgloss.NewStyle().
-		Foreground(t.Text)
-
-	muted := lipgloss.NewStyle().
-		Foreground(t.Muted)
-
-	item := func(k, label string) string {
-		return key.Render(k) + text.Render(" "+label)
-	}
-
-	return strings.Join([]string{
-		item("ESC", "RETURN"),
-		item("I", "INFO"),
-	}, muted.Render("  ·  "))
+	return m.renderShortcutHints(
+		shortcutHint{"ESC", "RETURN"}, shortcutHint{"S", "SETUP"}, shortcutHint{"I", "INFO"},
+	)
 }
 
 func terminalTooSmall(width, height int) bool {

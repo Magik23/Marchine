@@ -2,6 +2,16 @@
 
 ## Unreleased
 
+## 1.27.0
+- Added **IMPORT GAMES** to the GAMES Setup source: enter a path, an immediate directory, or a simple glob; preview eligible executables, scripts, AppImages, and Linux `.desktop` launchers without a file browser.
+- Added a scrollable, Arcade-style import selection list with persistent selections, select-all/none, duplicate detection, and a single atomic `config.toml` save; existing files are never moved, copied, or deleted.
+- Added system `.desktop` launching through `gio launch` and preserved launcher handoffs without forcibly stealing focus when a desktop launcher exits early.
+- Added **Remove All** from the REMOVE GAME picker, with a separate confirmation and no changes to Arcade settings or underlying files.
+- Made final import and removal confirmations **keyboard Y-only**: `Enter` and controller A never count as Yes; `N`/`Esc` cancel. Add/Edit continue to save explicitly through `Ctrl+S`.
+- Made `S` open Setup consistently from Info, Credits, and Categories; source switching with `Tab` remains context-specific.
+- Unified keyboard/controller shortcut hint presentation throughout the UI: accent-colored keys, regular action text, and muted separators from the selected theme, with no hardcoded single-theme colors.
+- Added regression coverage for import discovery/selection, removal guards, Y-only confirmations, navigation, and shortcut rendering.
+
 ## 1.26.0
 - Completed the in-app **GAMES** setup workflow: add, edit and remove named native executables, scripts and external launch commands; launch targets retain optional arguments and working directories.
 - Save new/edited GAMES entries atomically to `config.toml`, update the visible GAMES library immediately, and preserve configured games across restarts. Edit/Remove use a picker, with a Y/N deletion confirmation; removing an entry never deletes executable files.

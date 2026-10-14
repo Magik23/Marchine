@@ -6,7 +6,9 @@ The filename is retained for project history; this document describes the curren
 
 - Terminal-native TUI.
 - ARCADE + GAMES sources, with ARCADE first in the interface.
-- Flat generic executable-launcher entries managed through in-app Add/Edit/Remove Setup actions or manually in TOML.
+- Flat generic GAMES entries managed through in-app Add/Import/Edit/Remove Setup actions or manually in TOML.
+- Path-driven, multi-select import of local executables, scripts, AppImages, and standard Linux `.desktop` shortcuts; no file browser or account integration.
+- Keyboard `Y` required to confirm bulk import or removal, with no changes to the referenced files on disk.
 - Automatic MAME Arcade indexing from local data.
 - Name/year/manufacturer from MAME XML.
 - MAME launching leaves display orientation and rotation under MAME's own configuration.
@@ -18,7 +20,7 @@ The filename is retained for project history; this document describes the curren
 - Cache-first startup, explicit refresh, current-schema cache validation, and saved-library fallback.
 - Four terminal color themes.
 - Fixed embedded ANSI fightstick sculpture with asset-fitted detail panel.
-- Responsive shortcut footer within the supported layout.
+- Consistently styled, active-theme-colored shortcut hints and responsive footer within the supported layout.
 - Hard minimum terminal gate at **124×48** cells.
 - Separate Info and Credits screens.
 - Offline-capable vendored Go builds.

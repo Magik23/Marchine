@@ -22,10 +22,10 @@ The current GitHub release workflow publishes a **Linux amd64** archive and SHA-
 2. Download:
    - `marchine-X.Y.Z-linux-amd64.tar.gz`
    - `marchine-X.Y.Z-linux-amd64.tar.gz.sha256`
-3. Verify and install the executable and its icons (replace `1.26.0` with the version you downloaded):
+3. Verify and install the executable and its icons (replace `1.27.0` with the version you downloaded):
 
 ```bash
-VERSION=1.26.0
+VERSION=1.27.0
 ARCHIVE="marchine-${VERSION}-linux-amd64"
 
 sha256sum -c "${ARCHIVE}.tar.gz.sha256"
@@ -78,7 +78,7 @@ Marchine does not rename, move, repair, or delete ROMs.
 
 ### GAMES
 
-A flat list of native Linux executables, scripts, or commands on `PATH`. **Use `S` → GAMES → ADD GAME** to populate it directly from the launcher. EDIT GAME and REMOVE GAME manage existing entries without touching files on disk.
+A flat list of native Linux executables, scripts, commands on `PATH`, and standard Linux `.desktop` launchers. Use **`S` → GAMES → ADD GAME** for individual entries or **IMPORT GAMES** to select multiple local launch targets at once. **EDIT GAME** and **REMOVE GAME** manage saved entries without touching files on disk.
 
 Each entry has a display name, executable, optional arguments, and optional working directory. Arguments are passed to the chosen executable, without shell interpretation. For example, this manually configured entry is equivalent to one created through Setup:
 
@@ -89,7 +89,7 @@ command = "opentyrian"
 args = []
 ```
 
-Games added or edited in Setup appear in GAMES immediately and persist across restarts; no library refresh is required. You can also launch Steam commands or use a compatibility runner such as Wine for Windows executables, provided those tools are installed separately.
+Games added, imported, or edited in Setup appear in GAMES immediately and persist across restarts; no library refresh is required. Launch targets requiring external applications or compatibility runners depend on those tools being installed separately.
 
 ## Fast startup, explicit refresh
 
@@ -151,7 +151,7 @@ PUZZLE
 
 ![Marchine built-in help, shortcuts and Linux-first workflow](docs/images/marchine-help.png)
 
-Marchine keeps setup, shortcuts, project information, and credits inside the TUI.
+Marchine keeps setup, shortcuts, project information, and credits inside the TUI. Shortcut hints use accent-colored keys, regular action text, and muted separators drawn from the **active theme** (Marchine, Plasma, Phosphor, or Ember), without decorative keycap boxes.
 
 ### Main controls
 
@@ -194,13 +194,11 @@ On Linux, compatible evdev controllers are discovered by capabilities rather tha
 
 ## Setup
 
-Open Setup with:
+Open Setup with `S` from the library, Info, Credits, or Categories. Source switching with `Tab` remains restricted to the library.
 
-```text
-S
-```
+Setup lists **ARCADE** first, then **GAMES**. In GAMES, select **ADD GAME**, **IMPORT GAMES**, **EDIT GAME**, or **REMOVE GAME**. Add/Edit uses four fields (Name, Executable, Arguments, Working Directory); `Enter` edits/applies a field and `Ctrl+S` saves. In REMOVE GAME, `Enter` requests removal of the highlighted entry, while `A` (controller Menu) requests **Remove All**. Both removal actions require a separate **keyboard `Y`** confirmation. Removing entries never deletes executables, shortcuts, ROMs, or Arcade settings.
 
-Setup lists **ARCADE** first, then **GAMES**. In GAMES, select **ADD GAME**, **EDIT GAME**, or **REMOVE GAME**. Add/Edit opens a four-field editor (Name, Executable, Arguments, Working Directory); Enter edits a field and Ctrl+S saves. Edit/Remove first shows the configured games, and Remove requires explicit Y confirmation. Entries update the Games library immediately; removing an entry never deletes files from disk.
+**Bulk import:** Enter an exact path, immediate directory, or glob such as `~/.local/share/applications/*.desktop` or `~/Games/*.AppImage`. Marchine previews candidates in a scrolling, multi-select list (including large collections). Use `Space`/`Enter` to toggle, `A` to select all, `N` for none, and `I`/`Ctrl+S` to request import. **Only keyboard `Y` confirms** the final save; `N` or `Esc` cancels. Standard Linux `.desktop` launchers use the system `gio launch` mechanism; they remain in their original locations. See the [Setup guide](docs/SETUP.md#batch-import--import-games).
 
 Executables can be native Linux binaries, scripts, or commands on `PATH`. For Windows `.exe` games, provide a compatibility runner as the executable (for example, `wine`) and the Windows game path as an argument. Arguments support quoted paths containing spaces. While editing a field, use **Ctrl+Shift+V** to paste clipboard text in Foot. **Ctrl+S** applies the current text and saves immediately (no separate Enter required); Enter applies and moves to the next field, and Esc cancels the field edit. Foot uses Ctrl+Shift+C to copy selected terminal text. Marchine ignores Ctrl+C on all screens; use Q to quit. In Arcade Setup, Ctrl+S saves the Arcade settings; R refreshes the Arcade index using the saved settings **without saving pending edits**. GAMES entries update as soon as they are saved in Add/Edit; R does not refresh GAMES.
 

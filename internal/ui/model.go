@@ -24,6 +24,7 @@ type launchFinishedMsg struct {
 	Name              string
 	Err               error
 	RestoreFullscreen bool
+	DesktopHandoff    bool
 }
 
 type displayRotateFinishedMsg struct {
@@ -48,6 +49,8 @@ const (
 	screenCategories
 	screenGamePicker
 	screenGameEditor
+	screenGameImportPath
+	screenGameImportPreview
 )
 
 const (
@@ -61,6 +64,7 @@ const (
 	setupFieldMAME = iota
 	setupFieldROM
 	setupFieldAddGame
+	setupFieldImportGame
 	setupFieldEditGame
 	setupFieldRemoveGame
 	setupFieldCount
@@ -104,14 +108,21 @@ type Model struct {
 	setupMAME      string
 	setupROM       string
 
-	gamePickerAction  int
-	gamePickerCursor  int
-	gameDeletePending bool
-	gameIndex         int // config.Games index; -1 means Add
-	gameDraft         config.GameConfig
-	gameField         int
-	gameEditing       bool
-	gameBuffer        string
+	gamePickerAction     int
+	gamePickerCursor     int
+	gameDeletePending    bool
+	gameDeleteAllPending bool
+	gameIndex            int // config.Games index; -1 means Add
+	gameDraft            config.GameConfig
+	gameField            int
+	gameEditing          bool
+	gameBuffer           string
+
+	importPattern    string
+	importCandidates []importCandidate
+	importCursor     int
+	importConfirm    bool
+	importSkipped    int
 
 	categoryCursor int
 	infoSetting    int
@@ -211,6 +222,12 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.lastLaunch = msg.Name
 		if msg.Err != nil {
 			m.status = "LAUNCH FAILED: " + msg.Err.Error()
+		} else if msg.DesktopHandoff {
+			// gio launch normally hands off to another process and exits
+			// before the game does. Do not refocus fullscreen Marchine over
+			// the new window or claim the game has already returned.
+			m.status = "LAUNCH REQUEST SENT · " + strings.ToUpper(msg.Name)
+			return m, nil
 		} else {
 			m.status = "RETURNED FROM " + strings.ToUpper(msg.Name)
 		}
@@ -245,6 +262,10 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.gameBuffer += msg.Content
 			return m, nil
 		}
+		if m.screen == screenGameImportPath {
+			m.importPattern += msg.Content
+			return m, nil
+		}
 		if m.screen == screenLibrary && m.searchMode {
 			m.search += msg.Content
 			m.cursor = 0
@@ -261,6 +282,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if msg.String() == "ctrl+c" {
 			if (m.screen == screenSetup && m.setupEditing) ||
 				(m.screen == screenGameEditor && m.gameEditing) ||
+				(m.screen == screenGameImportPath) ||
 				(m.screen == screenLibrary && m.searchMode) {
 				m.status = "PASTE WITH CTRL+SHIFT+V"
 			}
@@ -307,6 +329,12 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		if m.screen == screenGameEditor {
 			return m.updateGameEditor(msg)
+		}
+		if m.screen == screenGameImportPath {
+			return m.updateGameImportPath(msg)
+		}
+		if m.screen == screenGameImportPreview {
+			return m.updateGameImportPreview(msg)
 		}
 		if m.screen == screenInfo {
 			return m.updateInfo(msg)
@@ -430,11 +458,13 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					cmd.Dir = g.WorkingDir
 				}
 
+				desktopHandoff := isDesktopGameLaunch(g.Command, g.Args)
 				return m, tea.ExecProcess(cmd, func(err error) tea.Msg {
 					return launchFinishedMsg{
 						Name:              name,
 						Err:               err,
 						RestoreFullscreen: restoreFullscreen,
+						DesktopHandoff:    desktopHandoff,
 					}
 				})
 			}
@@ -554,6 +584,8 @@ func (m Model) updateCategories(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		m.status = "READY"
 	case "i", "I", "ctrl+k":
 		m.openInfo()
+	case "s", "S":
+		m.openSetup()
 	case "o", "O", "ctrl+g":
 		m.openCredits()
 	case "t", "ctrl+t":
@@ -642,6 +674,8 @@ func (m Model) updateInfo(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		}
 	case "o", "O", "ctrl+g":
 		m.openCredits()
+	case "s", "S":
+		m.openSetup()
 	case "t", "ctrl+t":
 		m.cycleTheme()
 	case "h", "H":
@@ -666,6 +700,8 @@ func (m Model) updateCredits(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		return m, tea.Quit
 	case "i", "I", "ctrl+k":
 		m.openInfo()
+	case "s", "S":
+		m.openSetup()
 	case "t", "ctrl+t":
 		m.cycleTheme()
 	case "esc", "o", "O", "ctrl+g":
@@ -676,6 +712,8 @@ func (m Model) updateCredits(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 }
 
 func (m *Model) openSetup() {
+	// Setup is a destination; discard INFO/CREDITS return history.
+	m.overlayHistory = nil
 	m.screen = screenSetup
 	m.setupEditing = false
 	m.setupBuffer = ""
@@ -711,6 +749,8 @@ func (m Model) updateSetup(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 			}
 		case setupFieldAddGame:
 			m.openGameEditor(-1)
+		case setupFieldImportGame:
+			m.openGameImport()
 		case setupFieldEditGame:
 			m.openGamePicker(setupFieldEditGame)
 		case setupFieldRemoveGame:
@@ -718,7 +758,7 @@ func (m Model) updateSetup(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		}
 	case "ctrl+s":
 		if m.setupField >= setupFieldAddGame {
-			m.status = "SELECT ADD, EDIT OR REMOVE GAME"
+			m.status = "SELECT ADD, IMPORT, EDIT OR REMOVE GAME"
 			return m, nil
 		}
 		return m.saveSetup()

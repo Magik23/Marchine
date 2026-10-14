@@ -62,6 +62,27 @@ Use a real MAME installation and a small known ROM set to verify:
 13. saving Arcade settings and refreshing Arcade are separate operations; Setup `R` doesn't save pending edits or refresh GAMES;
 14. View + X / View + A adjust Foot font size on a focused Marchine Hyprland desktop window, preserving standalone View/X/A behaviors and previous View chords.
 
+## v1.27.0 import and safety smoke checks
+
+From **Setup → GAMES** verify:
+
+1. `IMPORT GAMES` accepts an exact path, immediate directory, and a simple glob for native executables, scripts, AppImages, and `.desktop` files; no candidate runs during discovery.
+2. Preview navigation (`↑/↓`, `Home`, `End`, `PgUp`, `PgDown`) scrolls a large list without losing off-screen selections. `Space`/`Enter` toggle one entry, `A` selects all, `N` selects none; the count tracks the selection.
+3. Duplicates are visibly identified and cannot be imported twice. Importing adds only selected new entries and retains them after restart.
+4. `I`/`Ctrl+S` opens the final import warning, **`Y` alone** confirms; `Enter`/controller A do not. `N` and `Esc` cancel without saving.
+5. Linux `.desktop` files launch via GIO when their underlying launch targets are available; a short-lived handoff does not forcibly refocus Marchine.
+6. `REMOVE GAME` removes one entry with confirmation; `A`/controller Menu requests Remove All. **`Y` alone** completes either removal; `Enter`/controller A never accept the warning. No physical files or Arcade configuration are deleted.
+7. Setup is reachable with `S` from Info, Credits, and Categories; navigation back does not get stuck in earlier screens. `Tab` does not switch sources from Info or Setup.
+8. All four themes show accent-colored keys, ordinary action labels, and muted separators across Library, Info, Credits, Categories, Setup, GAMES editor/removal, and import/confirmation footers.
+
+Suggested pre-tag checks from the repository root:
+
+```bash
+go test ./...
+git diff --check
+git status -sb
+```
+
 ## UI smoke checks
 
 Verify at and above **124×48**:

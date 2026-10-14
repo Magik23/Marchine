@@ -75,7 +75,9 @@ func (m *Model) openGamePicker(action int) {
 	m.gamePickerAction = action
 	m.gamePickerCursor = 0
 	m.gameDeletePending = false
+	m.gameDeleteAllPending = false
 	m.screen = screenGamePicker
+	m.status = ""
 }
 
 func (m *Model) openGameEditor(index int) {
@@ -110,9 +112,14 @@ func (m Model) updateGamePicker(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	if m.gameDeletePending {
 		switch key {
 		case "y", "Y":
-			m.removeConfiguredGame(rows[m.gamePickerCursor].index)
+			if m.gameDeleteAllPending {
+				m.removeAllConfiguredGames()
+			} else {
+				m.removeConfiguredGame(rows[m.gamePickerCursor].index)
+			}
 		case "n", "N", "esc":
 			m.gameDeletePending = false
+			m.gameDeleteAllPending = false
 		}
 		return m, nil
 	}
@@ -122,6 +129,7 @@ func (m Model) updateGamePicker(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		return m, tea.Quit
 	case "esc":
 		m.screen = screenSetup
+		m.status = "READY"
 	case "up", "k", "shift+tab":
 		m.gamePickerCursor = (m.gamePickerCursor - 1 + len(rows)) % len(rows)
 	case "down", "j", "tab":
@@ -135,6 +143,14 @@ func (m Model) updateGamePicker(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 			m.openGameEditor(rows[m.gamePickerCursor].index)
 		} else {
 			m.gameDeletePending = true
+			m.gameDeleteAllPending = false
+			m.status = ""
+		}
+	case "a", "A", "shift+a":
+		if m.gamePickerAction == setupFieldRemoveGame {
+			m.gameDeletePending = true
+			m.gameDeleteAllPending = true
+			m.status = ""
 		}
 	}
 	return m, nil
@@ -272,6 +288,7 @@ func (m *Model) removeConfiguredGame(index int) {
 	if m.demo {
 		m.status = "GAME REMOVE DISABLED IN DEMO MODE"
 		m.gameDeletePending = false
+		m.gameDeleteAllPending = false
 		return
 	}
 	if index < 0 || index >= len(m.cfg.Games) {
@@ -285,6 +302,7 @@ func (m *Model) removeConfiguredGame(index int) {
 	if err := config.Save(m.configPath, next); err != nil {
 		m.status = "GAME REMOVE FAILED: " + err.Error()
 		m.gameDeletePending = false
+		m.gameDeleteAllPending = false
 		return
 	}
 	m.cfg = next
@@ -292,7 +310,35 @@ func (m *Model) removeConfiguredGame(index int) {
 	m.screen = screenSetup
 	m.setupField = setupFieldRemoveGame
 	m.gameDeletePending = false
+	m.gameDeleteAllPending = false
 	m.status = "GAME REMOVED · " + name
+}
+
+// Remove all configured GAMES entries in one atomic config save.
+// ARCADE metadata, ROMs, executables and desktop shortcut files are untouched.
+func (m *Model) removeAllConfiguredGames() {
+	m.gameDeletePending = false
+	m.gameDeleteAllPending = false
+	if m.demo {
+		m.status = "GAME REMOVE DISABLED IN DEMO MODE"
+		return
+	}
+	count := len(m.cfg.Games)
+	if count == 0 {
+		m.status = "NO GAMES CONFIGURED"
+		return
+	}
+	next := m.cfg
+	next.Games = nil
+	if err := config.Save(m.configPath, next); err != nil {
+		m.status = "GAME REMOVE FAILED: " + err.Error()
+		return
+	}
+	m.cfg = next
+	m.reloadGames()
+	m.screen = screenSetup
+	m.setupField = setupFieldRemoveGame
+	m.status = fmt.Sprintf("GAME LIBRARY CLEARED · %d ENTRIES REMOVED", count)
 }
 
 // Single-command-line arguments with quotes; do not invoke a shell.
@@ -387,10 +433,16 @@ func (m Model) renderGamePicker(width, height int) string {
 	b.WriteString(muted.Render(fmt.Sprintf("  // %d CONFIGURED", len(rows))))
 	b.WriteString("\n\n")
 	if m.gameDeletePending && len(rows) > 0 {
-		idx := min(m.gamePickerCursor, len(rows)-1)
-		b.WriteString(warn.Render("REMOVE '" + trim(rows[idx].name, innerW-26) + "' FROM MARCHINE?"))
+		if m.gameDeleteAllPending {
+			b.WriteString(warn.Render(fmt.Sprintf("REMOVE ALL %d GAMES FROM MARCHINE?", len(rows))))
+			b.WriteByte('\n')
+			b.WriteString(muted.Render("Only Marchine entries will be removed; no files deleted."))
+		} else {
+			idx := min(m.gamePickerCursor, len(rows)-1)
+			b.WriteString(warn.Render("REMOVE '" + trim(rows[idx].name, innerW-26) + "' FROM MARCHINE?"))
+		}
 		b.WriteString("\n")
-		b.WriteString(muted.Render("Y YES  ·  N NO"))
+		b.WriteString(m.renderShortcutHints(shortcutHint{"Y", "YES"}, shortcutHint{"N", "NO"}, shortcutHint{"ESC", "CANCEL"}))
 		b.WriteString("\n\n")
 	}
 	// Reserve room for borders, title, and possible delete confirmation.
@@ -463,7 +515,7 @@ func (m Model) renderGameEditor(width, height int) string {
 		}
 		b.WriteString("\n\n")
 	}
-	b.WriteString(muted.Render("Enter applies · Ctrl+S saves · Ctrl+Shift+V pastes · Esc cancels"))
+	b.WriteString(m.renderShortcutHints(shortcutHint{"Enter", "applies"}, shortcutHint{"Ctrl+S", "saves"}, shortcutHint{"Ctrl+Shift+V", "pastes"}, shortcutHint{"Esc", "cancels"}))
 	if strings.HasPrefix(m.status, "GAME ") {
 		b.WriteByte('\n')
 		b.WriteString(warn.Render(trim(m.status, innerW)))
@@ -474,14 +526,26 @@ func (m Model) renderGameEditor(width, height int) string {
 
 func (m Model) renderGamePickerFooter(width int) string {
 	if m.gameDeletePending {
-		return "Y YES  ·  N NO"
+		return m.renderShortcutHints(shortcutHint{"Y", "YES"}, shortcutHint{"N", "NO"}, shortcutHint{"ESC", "CANCEL"})
 	}
-	return "↑↓/TAB SELECT  ·  ENTER OPEN  ·  ESC SETUP"
+	if m.gamePickerAction == setupFieldRemoveGame {
+		return m.renderShortcutHintsFit(width,
+			[]shortcutHint{{"↑↓/TAB", "SELECT"}, {"ENTER", "REMOVE"}, {"A/MENU", "REMOVE ALL"}, {"ESC", "SETUP"}},
+			[]shortcutHint{{"ENTER", "REMOVE"}, {"A/MENU", "REMOVE ALL"}, {"ESC", "SETUP"}},
+		)
+	}
+	return m.renderShortcutHints(shortcutHint{"↑↓/TAB", "SELECT"}, shortcutHint{"ENTER", "EDIT"}, shortcutHint{"ESC", "SETUP"})
 }
 
 func (m Model) renderGameEditorFooter(width int) string {
 	if m.gameEditing {
-		return "ENTER APPLY  ·  CTRL+S SAVE  ·  CTRL+SHIFT+V PASTE  ·  ESC CANCEL"
+		return m.renderShortcutHintsFit(width,
+			[]shortcutHint{{"ENTER", "APPLY"}, {"CTRL+S", "SAVE"}, {"CTRL+SHIFT+V", "PASTE"}, {"ESC", "CANCEL"}},
+			[]shortcutHint{{"ENTER", "APPLY"}, {"ESC", "CANCEL"}},
+		)
 	}
-	return "↑↓/TAB FIELD  ·  ENTER EDIT  ·  CTRL+S SAVE GAME  ·  ESC CANCEL"
+	return m.renderShortcutHintsFit(width,
+		[]shortcutHint{{"↑↓/TAB", "FIELD"}, {"ENTER", "EDIT"}, {"CTRL+S", "SAVE GAME"}, {"ESC", "CANCEL"}},
+		[]shortcutHint{{"ENTER", "EDIT"}, {"CTRL+S", "SAVE GAME"}, {"ESC", "CANCEL"}},
+	)
 }

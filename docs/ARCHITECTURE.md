@@ -31,7 +31,17 @@ command + args + optional working directory
 
 Marchine uses Bubble Tea process handoff so the child application owns the terminal while running. Marchine resumes when the child exits.
 
-GAMES entries come directly from the user's `[[games]]` configuration. In-app Add/Edit/Remove operations use the existing atomic config save and rebuild the current GAMES list immediately; they do not index game files, depend on MAME, or delete executables. Arguments are parsed into a direct process argument vector, not evaluated by a shell. ARCADE entries store durable local metadata plus MAME launch identity.
+GAMES entries are persisted as `[[games]]` configuration. In-app Add/Import/Edit/Remove operations use the existing atomic config save and rebuild the GAMES list immediately. Direct launch arguments are a process argument vector, not a shell expression. ARCADE entries store durable local metadata plus MAME launch identity.
+
+### GAMES import and external desktop shortcuts
+
+`internal/ui/game_import.go` accepts an exact file, the immediate files in a directory, or a simple `filepath.Glob` pattern (`**` recursive scans are not supported). Discovery checks candidates without launching anything. Supported imports include executable local files and standard readable Linux `Type=Application` `.desktop` shortcuts. Preview keeps selected states across a fixed-height, scrollable viewport; existing entries are deduplicated by launch identity (command, arguments, working directory).
+
+Import commits selected new entries in one atomic configuration save. Removing one or all configured GAMES entries changes only `[[games]]` and never deletes the referenced files or changes ARCADE settings. Both import and remove warning screens require an explicit keyboard `Y`—not Enter or controller A.
+
+A `.desktop` item is invoked through `gio launch`, retaining its original path. Because that command can quickly hand off to another process, Marchine avoids forcibly reclaiming focus as soon as the `gio` process returns. These shortcuts depend on the host's GIO utility and their external launch targets.
+
+Keyboard/controller shortcut hints are rendered centrally by `internal/ui/shortcut_hints.go`, using the active theme's accent, text and muted colors.
 
 ## Arcade driver
 

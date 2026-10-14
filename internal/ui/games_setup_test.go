@@ -1,6 +1,8 @@
 package ui
 
 import (
+	"fmt"
+	"os"
 	"path/filepath"
 	"reflect"
 	"strings"
@@ -9,6 +11,7 @@ import (
 	tea "charm.land/bubbletea/v2"
 
 	"github.com/magik23/marchine/internal/config"
+	"github.com/magik23/marchine/internal/gamepad"
 	"github.com/magik23/marchine/internal/library"
 )
 
@@ -94,7 +97,7 @@ func TestSetupRefreshNeverSavesPendingArcadeEdits(t *testing.T) {
 
 func TestSetupAndRemovalShowConciseInstructions(t *testing.T) {
 	m := NewModel(config.Default(), "", false, true)
-	setup := m.renderSetup(122, 35)
+	setup := ansiEscape.ReplaceAllString(m.renderSetup(122, 35), "")
 	for _, want := range []string{"ARCADE SETUP", "GAMES SETUP", "Ctrl+S saves Arcade settings", "R refreshes Arcade", "Ctrl+S saves a game in Add/Edit"} {
 		if !strings.Contains(setup, want) {
 			t.Fatalf("Setup missing %q", want)
@@ -108,7 +111,7 @@ func TestSetupAndRemovalShowConciseInstructions(t *testing.T) {
 	m.cfg.Games = []config.GameConfig{{Name: "Example", Command: "/bin/true"}}
 	m.openGamePicker(setupFieldRemoveGame)
 	m.gameDeletePending = true
-	confirm := m.renderGamePicker(122, 35)
+	confirm := ansiEscape.ReplaceAllString(m.renderGamePicker(122, 35), "")
 	for _, want := range []string{"REMOVE 'Example' FROM MARCHINE?", "Y YES", "N NO"} {
 		if !strings.Contains(confirm, want) {
 			t.Fatalf("Remove confirmation missing %q", want)
@@ -310,5 +313,138 @@ func TestArcadeSetupPasteAndSaveActiveField(t *testing.T) {
 	saved, err := config.Load(path)
 	if err != nil || saved.Arcade.MAMECommand != "/opt/mame custom/mame" {
 		t.Fatalf("Arcade paste was not persisted: %#v, %v", saved.Arcade, err)
+	}
+}
+
+func TestRemoveAllConfiguredGamesRequiresConfirmationAndPreservesFiles(t *testing.T) {
+	base := t.TempDir()
+	cfgPath := filepath.Join(base, "marchine", "config.toml")
+	launcher := filepath.Join(base, "Steam Game.desktop")
+	if err := os.WriteFile(launcher, []byte("[Desktop Entry]\nType=Application\nName=Steam Game\nExec=steam steam://rungameid/123\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	cfg := config.Default()
+	cfg.Theme = "amber"
+	cfg.Arcade.ROMPaths = []string{"/roms/one", "/roms/two"}
+	for i := 0; i < 200; i++ {
+		cfg.Games = append(cfg.Games, config.GameConfig{Name: fmt.Sprintf("Game %03d", i), Command: "gio", Args: []string{"launch", launcher}})
+	}
+	if err := config.Save(cfgPath, cfg); err != nil {
+		t.Fatal(err)
+	}
+	m := NewModel(cfg, cfgPath, false, false)
+	m.openGamePicker(setupFieldRemoveGame)
+	if !strings.Contains(ansiEscape.ReplaceAllString(m.renderGamePickerFooter(122), ""), "A/MENU REMOVE ALL") {
+		t.Fatal("Remove All shortcut is not visible in footer")
+	}
+
+	// A only opens a warning, never deletes anything immediately.
+	next, _ := m.updateGamePicker(textKey("a"))
+	m = next.(Model)
+	if !m.gameDeletePending || !m.gameDeleteAllPending || len(m.cfg.Games) != 200 {
+		t.Fatal("A must request, but not execute, Remove All")
+	}
+	plain := ansiEscape.ReplaceAllString(m.View().Content, "")
+	for _, text := range []string{"REMOVE ALL 200 GAMES", "no files deleted", "Y YES", "N NO"} {
+		if !strings.Contains(plain, text) {
+			t.Fatalf("Remove All warning missing %q", text)
+		}
+	}
+	next, _ = m.updateGamePicker(specialKey(tea.KeyEscape))
+	m = next.(Model)
+	if m.gameDeletePending || m.gameDeleteAllPending || len(m.cfg.Games) != 200 {
+		t.Fatal("Esc should cancel Remove All")
+	}
+	loaded, err := config.Load(cfgPath)
+	if err != nil || len(loaded.Games) != 200 {
+		t.Fatalf("cancellation changed saved library: %d games, %v", len(loaded.Games), err)
+	}
+
+	// Y confirms one atomic save clearing the GAMES list only.
+	next, _ = m.updateGamePicker(textKey("a"))
+	m = next.(Model)
+	next, _ = m.updateGamePicker(textKey("y"))
+	m = next.(Model)
+	if len(m.cfg.Games) != 0 || len(m.games) != 0 || m.screen != screenSetup || m.setupField != setupFieldRemoveGame {
+		t.Fatalf("Remove All did not refresh screen and library: games=%d entries=%d screen=%v", len(m.cfg.Games), len(m.games), m.screen)
+	}
+	if !strings.Contains(m.status, "200 ENTRIES REMOVED") {
+		t.Fatalf("expected visible success feedback: %q", m.status)
+	}
+	loaded, err = config.Load(cfgPath)
+	if err != nil || len(loaded.Games) != 0 || loaded.Theme != cfg.Theme || !reflect.DeepEqual(loaded.Arcade.ROMPaths, cfg.Arcade.ROMPaths) {
+		t.Fatalf("Remove All affected other config: %+v, %v", loaded, err)
+	}
+	if _, err := os.Stat(launcher); err != nil {
+		t.Fatalf("Remove All touched a .desktop shortcut file: %v", err)
+	}
+}
+
+func TestRemoveAllOnlyInRemovePickerAndDemoProtected(t *testing.T) {
+	cfg := config.Default()
+	cfg.Games = []config.GameConfig{{Name: "Only game", Command: "/bin/true"}}
+	m := NewModel(cfg, filepath.Join(t.TempDir(), "config.toml"), false, true)
+	m.openGamePicker(setupFieldEditGame)
+	next, _ := m.updateGamePicker(textKey("a"))
+	m = next.(Model)
+	if m.gameDeletePending || m.gameDeleteAllPending {
+		t.Fatal("Remove All shortcut must do nothing from EDIT GAME")
+	}
+	m.openGamePicker(setupFieldRemoveGame)
+	next, _ = m.updateGamePicker(textKey("a"))
+	m = next.(Model)
+	next, _ = m.updateGamePicker(textKey("y"))
+	m = next.(Model)
+	if len(m.cfg.Games) != 1 || !strings.Contains(m.status, "DISABLED IN DEMO MODE") || m.gameDeletePending {
+		t.Fatal("demo mode unexpectedly allowed Remove All")
+	}
+}
+
+func TestRemoveAllFailedSaveLeavesGameListIntact(t *testing.T) {
+	cfg := config.Default()
+	cfg.Games = []config.GameConfig{{Name: "Safe", Command: "/bin/true"}}
+	base := t.TempDir()
+	notDir := filepath.Join(base, "a-file")
+	if err := os.WriteFile(notDir, []byte("not a directory"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	m := NewModel(cfg, filepath.Join(notDir, "config.toml"), false, false)
+	m.openGamePicker(setupFieldRemoveGame)
+	next, _ := m.updateGamePicker(textKey("a"))
+	m = next.(Model)
+	next, _ = m.updateGamePicker(textKey("y"))
+	m = next.(Model)
+	if len(m.cfg.Games) != 1 || len(m.games) != 1 || m.screen != screenGamePicker || !strings.Contains(m.status, "GAME REMOVE FAILED") {
+		t.Fatalf("failed save changed game library: %+v status=%q", m.cfg.Games, m.status)
+	}
+}
+
+func TestControllerRemoveAllNeedsTwoActions(t *testing.T) {
+	cfg := config.Default()
+	cfg.Games = []config.GameConfig{{Name: "Controller game", Command: "/bin/true"}}
+	m := NewModel(cfg, filepath.Join(t.TempDir(), "config.toml"), false, false)
+	m.openGamePicker(setupFieldRemoveGame)
+	next, _ := m.updateGamepad(gamepad.ActionMenu)
+	m = next.(Model)
+	if !m.gameDeleteAllPending || len(m.cfg.Games) != 1 {
+		t.Fatal("Menu must request Remove All without saving")
+	}
+	next, _ = m.updateGamepad(gamepad.ActionBack)
+	m = next.(Model)
+	if m.gameDeletePending || m.gameDeleteAllPending || len(m.cfg.Games) != 1 {
+		t.Fatal("controller Back must cancel Remove All")
+	}
+	next, _ = m.updateGamepad(gamepad.ActionMenu)
+	m = next.(Model)
+	next, _ = m.updateGamepad(gamepad.ActionConfirm)
+	m = next.(Model)
+	if !m.gameDeletePending || !m.gameDeleteAllPending || len(m.cfg.Games) != 1 {
+		t.Fatal("controller Confirm must not bypass Y-only deletion confirmation")
+	}
+	// The deliberate keyboard Y is the only action that authorizes removal.
+	next, _ = m.updateGamePicker(textKey("y"))
+	m = next.(Model)
+	if m.gameDeletePending || len(m.cfg.Games) != 0 {
+		t.Fatal("keyboard Y failed to confirm Remove All")
 	}
 }

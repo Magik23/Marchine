@@ -34,7 +34,7 @@ For controller font resizing, **hold View first** and tap **X** (larger) or **A*
 
 When Marchine's terminal is smaller than **124×48 cells**, it shows a resize/reduce-font hint instead of the full interface. View + A remains usable to decrease font size on supported Hyprland/Foot desktops.
 
-Inside Setup's text fields, paste with Foot `Ctrl+Shift+V`; `Ctrl+S` saves even while editing. Marchine ignores `Ctrl+C` to prevent accidental exits. See [Setup](SETUP.md) for the GAMES and Arcade workflows.
+Inside Setup's text fields, paste with Foot `Ctrl+Shift+V`; `Ctrl+S` saves even while editing. Marchine ignores `Ctrl+C` to prevent accidental exits. `S` opens Setup from Info, Credits, and Categories as well as the library; `Tab` does not switch sources from these secondary screens. Shortcut key labels follow the active theme color, while descriptions and separators remain visually distinct. GAMES bulk import and removal use **keyboard `Y` only** for their final confirmations; `Enter` and controller A never count as Yes. See [Setup](SETUP.md) for the GAMES and Arcade workflows.
 
 ### Quick Settings
 

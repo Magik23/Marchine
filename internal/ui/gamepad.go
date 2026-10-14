@@ -118,7 +118,8 @@ func (m *Model) moveGamepadCursor(delta int) {
 
 func (m Model) gamepadKey(action gamepad.Action) (tea.KeyPressMsg, bool) {
 	if (m.screen == screenSetup && m.setupEditing) ||
-		(m.screen == screenGameEditor && m.gameEditing) {
+		(m.screen == screenGameEditor && m.gameEditing) ||
+		(m.screen == screenGameImportPath) {
 		switch action {
 		case gamepad.ActionConfirm:
 			return specialKey(tea.KeyEnter), true
@@ -127,6 +128,17 @@ func (m Model) gamepadKey(action gamepad.Action) (tea.KeyPressMsg, bool) {
 		default:
 			return tea.KeyPressMsg{}, false
 		}
+	}
+
+	// In import preview, A toggles a row; Menu opens the final import
+	// confirmation. View/other library controls remain unchanged.
+	if m.screen == screenGameImportPreview && action == gamepad.ActionMenu {
+		return textKey("i"), true
+	}
+	// Menu requests Remove All. Only keyboard Y accepts the final
+	// confirmation; controller Confirm maps to Enter, which is ignored.
+	if m.screen == screenGamePicker && m.gamePickerAction == setupFieldRemoveGame && action == gamepad.ActionMenu {
+		return textKey("a"), true
 	}
 
 	switch action {
