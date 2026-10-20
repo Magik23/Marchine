@@ -45,6 +45,11 @@ The prebuilt archive includes icons but **does not automatically install a deskt
 
 If `~/.local/bin` is not already on your `PATH`, add it through your shell configuration.
 
+**Launch modes:**
+
+- `marchine` — runs inside your current terminal window.
+- `marchine --desktop` — opens Marchine in a dedicated fullscreen Foot window (requires Foot).
+
 ### Requirements
 
 - Linux
