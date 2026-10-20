@@ -79,9 +79,12 @@ func TestInfoAndCreditsAreSeparateScreens(t *testing.T) {
 	info := m.renderInfo(120, 36)
 
 	for _, want := range []string{
-		"HOW IT WORKS",
+		"ABOUT MARCHINE",
+		"SOURCES",
+		"ARCADE: MAME ROMs only.",
+		"PLAYLISTS: Mixed ARCADE and GAMES collections.",
+		"Documentation: github.com/Magik23/Marchine",
 		"SHORTCUTS",
-		"EMULATOR MODEL",
 		"O",
 		"Credits",
 		"QUICK SETTING",
@@ -188,7 +191,7 @@ func TestTopNavigationOnlyShowsSources(t *testing.T) {
 	cfg := config.Default()
 	m := NewModel(cfg, "", false, true)
 	tabs := m.renderSourceTabs(120)
-	for _, want := range []string{"GAMES", "ARCADE"} {
+	for _, want := range []string{"GAMES", "ARCADE", "PLAYLISTS"} {
 		if !strings.Contains(tabs, want) {
 			t.Fatalf("top navigation missing %q: %q", want, tabs)
 		}
@@ -208,7 +211,7 @@ func TestSourceBarCountTracksVisibleLibrary(t *testing.T) {
 	m.source = library.SourceGames
 	gamesCount := len(m.filtered())
 	gamesBar := ansiEscape.ReplaceAllString(m.renderSourceTabs(width), "")
-	if want := groupedCount(gamesCount) + " GAMES"; !strings.HasSuffix(gamesBar, want) {
+	if want := groupedCount(gamesCount) + " GAMES"; !strings.HasSuffix(strings.TrimRight(gamesBar, " "), want) {
 		t.Fatalf("Games source bar = %q; want suffix %q", gamesBar, want)
 	}
 	if got := lipgloss.Width(m.renderSourceTabs(width)); got != width {
@@ -216,12 +219,16 @@ func TestSourceBarCountTracksVisibleLibrary(t *testing.T) {
 	}
 
 	m.toggleSource()
+	if m.source != library.SourcePlaylists || m.screen != screenPlaylists {
+		t.Fatal("switching Games to Playlists failed")
+	}
+	m.toggleSource()
 	if m.source != library.SourceArcade {
-		t.Fatal("switching Games to Arcade failed")
+		t.Fatal("switching Playlists to Arcade failed")
 	}
 	arcadeCount := len(m.filtered())
 	arcadeBar := ansiEscape.ReplaceAllString(m.renderSourceTabs(width), "")
-	if want := groupedCount(arcadeCount) + " GAMES"; !strings.HasSuffix(arcadeBar, want) {
+	if want := groupedCount(arcadeCount) + " GAMES"; !strings.HasSuffix(strings.TrimRight(arcadeBar, " "), want) {
 		t.Fatalf("Arcade source bar = %q; want suffix %q", arcadeBar, want)
 	}
 	if arcadeCount == gamesCount {
@@ -230,17 +237,17 @@ func TestSourceBarCountTracksVisibleLibrary(t *testing.T) {
 
 	// Filtering and searching must describe the currently displayed games.
 	m.filter = "SHMUPS"
-	if want := groupedCount(len(m.filtered())) + " MATCHES"; !strings.HasSuffix(ansiEscape.ReplaceAllString(m.renderSourceTabs(width), ""), want) {
+	if want := groupedCount(len(m.filtered())) + " MATCHES"; !strings.HasSuffix(strings.TrimRight(ansiEscape.ReplaceAllString(m.renderSourceTabs(width), ""), " "), want) {
 		t.Fatalf("category counter missing %q", want)
 	}
 	m.search = "no-such-mame-title-for-testing"
-	if got := ansiEscape.ReplaceAllString(m.renderSourceTabs(width), ""); !strings.HasSuffix(got, "0 MATCHES") {
+	if got := ansiEscape.ReplaceAllString(m.renderSourceTabs(width), ""); !strings.HasSuffix(strings.TrimRight(got, " "), "0 MATCHES") {
 		t.Fatalf("empty search counter = %q", got)
 	}
 	m.search = ""
 	m.filter = ""
 	m.cfg.Arcade.HideJunk = false
-	if want := groupedCount(len(m.filtered())) + " GAMES"; !strings.HasSuffix(ansiEscape.ReplaceAllString(m.renderSourceTabs(width), ""), want) {
+	if want := groupedCount(len(m.filtered())) + " GAMES"; !strings.HasSuffix(strings.TrimRight(ansiEscape.ReplaceAllString(m.renderSourceTabs(width), ""), " "), want) {
 		t.Fatalf("hide non-arcade OFF should show full library counter %q", want)
 	}
 
@@ -258,19 +265,19 @@ func TestSourceBarCountHandlesLargeAndEmptyLibraries(t *testing.T) {
 	m := NewModel(config.Default(), "", false, true)
 	m.source = library.SourceGames
 	m.games = make([]library.Game, 3574)
-	if got := ansiEscape.ReplaceAllString(m.renderSourceTabs(122), ""); !strings.HasSuffix(got, "3,574 GAMES") {
+	if got := ansiEscape.ReplaceAllString(m.renderSourceTabs(122), ""); !strings.HasSuffix(strings.TrimRight(got, " "), "3,574 GAMES") {
 		t.Fatalf("thousands separator lost: %q", got)
 	}
 	m.games = nil
-	if got := ansiEscape.ReplaceAllString(m.renderSourceTabs(122), ""); !strings.HasSuffix(got, "0 GAMES") {
+	if got := ansiEscape.ReplaceAllString(m.renderSourceTabs(122), ""); !strings.HasSuffix(strings.TrimRight(got, " "), "0 GAMES") {
 		t.Fatalf("empty library should show zero: %q", got)
 	}
 	m.games = []library.Game{{Name: "One game"}}
-	if got := ansiEscape.ReplaceAllString(m.renderSourceTabs(122), ""); !strings.HasSuffix(got, "1 GAME") {
+	if got := ansiEscape.ReplaceAllString(m.renderSourceTabs(122), ""); !strings.HasSuffix(strings.TrimRight(got, " "), "1 GAME") {
 		t.Fatalf("single game should use singular label: %q", got)
 	}
 	m.search = "one"
-	if got := ansiEscape.ReplaceAllString(m.renderSourceTabs(122), ""); !strings.HasSuffix(got, "1 MATCH") {
+	if got := ansiEscape.ReplaceAllString(m.renderSourceTabs(122), ""); !strings.HasSuffix(strings.TrimRight(got, " "), "1 MATCH") {
 		t.Fatalf("single search hit should use singular label: %q", got)
 	}
 }
@@ -569,7 +576,7 @@ func TestHideNonArcadePreservesCategoryAndLiveCount(t *testing.T) {
 				t.Fatalf("SHMUPS filter leaked item: %#v", g)
 			}
 		}
-		if suffix := groupedCount(want.count) + " MATCHES"; !strings.HasSuffix(ansiEscape.ReplaceAllString(m.renderSourceTabs(122), ""), suffix) {
+		if suffix := groupedCount(want.count) + " MATCHES"; !strings.HasSuffix(strings.TrimRight(ansiEscape.ReplaceAllString(m.renderSourceTabs(122), ""), " "), suffix) {
 			t.Fatalf("source bar did not update to %q", suffix)
 		}
 	}

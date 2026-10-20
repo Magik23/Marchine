@@ -28,7 +28,7 @@ type configuredGame struct {
 	name  string
 }
 
-// Keep launch identities tied to their TOML indexes, not sorted row positions.
+// The editor uses TOML indexes to select entries; persistent game identity is GameConfig.ID.
 func (m Model) configuredGames() []configuredGame {
 	rows := make([]configuredGame, 0, len(m.cfg.Games))
 	for i, game := range m.cfg.Games {
@@ -48,12 +48,12 @@ func (m Model) configuredGames() []configuredGame {
 // entries remain editable in Setup, but never become broken launch targets.
 func (m *Model) reloadGames() {
 	m.games = nil
-	for i, game := range m.cfg.Games {
+	for _, game := range m.cfg.Games {
 		if strings.TrimSpace(game.Name) == "" || strings.TrimSpace(game.Command) == "" {
 			continue
 		}
 		m.games = append(m.games, library.Game{
-			ID:         fmt.Sprintf("game:%d", i),
+			ID:         "game:" + game.ID,
 			Name:       game.Name,
 			Source:     library.SourceGames,
 			Command:    game.Command,
@@ -268,6 +268,10 @@ func (m *Model) saveConfiguredGame() {
 		next.Games[m.gameIndex] = m.gameDraft
 	}
 	next.Normalize()
+	if err := next.EnsureGameIDs(); err != nil {
+		m.status = "GAME ID FAILED: " + err.Error()
+		return
+	}
 	if err := config.Save(m.configPath, next); err != nil {
 		m.status = "GAME SAVE FAILED: " + err.Error()
 		return

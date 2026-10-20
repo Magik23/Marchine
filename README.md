@@ -22,10 +22,10 @@ The current GitHub release workflow publishes a **Linux amd64** archive and SHA-
 2. Download:
    - `marchine-X.Y.Z-linux-amd64.tar.gz`
    - `marchine-X.Y.Z-linux-amd64.tar.gz.sha256`
-3. Verify and install the executable and its icons (replace `1.27.0` with the version you downloaded):
+3. Verify and install the executable and its icons (replace `1.28.0` with the version you downloaded):
 
 ```bash
-VERSION=1.27.0
+VERSION=1.28.0
 ARCHIVE="marchine-${VERSION}-linux-amd64"
 
 sha256sum -c "${ARCHIVE}.tar.gz.sha256"
@@ -57,7 +57,7 @@ Marchine is developed on Arch Linux and fits naturally into keyboard-driven desk
 
 ## What Marchine does
 
-Marchine has two intentionally simple sources. The source bar shows the number of games in the current view, updating with source changes, category filters, searches, and Hide Non-Arcade.
+Marchine has three intentionally simple sources: **ARCADE | GAMES | PLAYLISTS**. `Tab` / controller View cycles among them. The source bar shows the appropriate game or playlist count and updates with source changes, category filters, searches, and Hide Non-Arcade.
 
 ### ARCADE
 
@@ -90,6 +90,60 @@ args = []
 ```
 
 Games added, imported, or edited in Setup appear in GAMES immediately and persist across restarts; no library refresh is required. Launch targets requiring external applications or compatibility runners depend on those tools being installed separately.
+
+### PLAYLISTS
+
+PLAYLISTS is Marchine's third source: your own collections of **ARCADE and GAMES titles in one playable list**. A playlist may contain MAME ROMs alongside native executables, scripts, or configured emulator commands. Each game can belong to several playlists, and titles stay in the order you added them.
+
+**The distinction is intentional:** ARCADE and GAMES browse the original libraries and let you **save to an existing playlist**; only PLAYLISTS creates, manages, opens, and plays collections. Playlists are never loaded as category filters in ARCADE or GAMES. Switch sources with `Tab` or controller **View**.
+
+#### 1. Create a playlist
+
+1. Switch to **PLAYLISTS** using `Tab` / View.
+2. Press **`N`** to create a playlist, enter a name (for example, `Favorites`), and press `Enter` to save.
+3. Repeat for other collections such as `SHMUP Essentials` or `Couch Gaming`. Empty playlists are allowed. Names cannot be blank, exceed 48 characters, or duplicate another playlist name (case-insensitive).
+
+Playlist names are typed with a **keyboard**; `Esc` cancels without saving. You must create the playlist here **before** it appears as a save destination in ARCADE or GAMES.
+
+#### 2. Add games from ARCADE or GAMES
+
+1. Browse **ARCADE** or **GAMES** and highlight a title.
+2. Press **`P`** or controller **View + Y** to open **SAVE TO PLAYLIST**.
+3. Select an existing destination with Up/Down; press **Enter / A** to save, or **Esc / B** to cancel.
+4. Repeat to add titles from either source to the **same** playlist. A game can be in multiple playlists; saving the same game to one playlist twice does not add a duplicate.
+
+If no playlists exist, Marchine tells you to create one in PLAYLISTS first. **Saving a game does not switch the current source or open the playlist.**
+
+#### 3. Open and play a collection
+
+1. Switch to **PLAYLISTS** and highlight a playlist.
+2. Press **Enter / A** to open its unified game list.
+3. Navigate, search with `/`, and launch any available game with **Enter / A**, as in the normal library.
+4. Press **Esc / B** to return to the PLAYLISTS manager. At the top-level manager, **Esc / B does not switch sources**; use `Tab` / View for that.
+
+Marchine uses the original ARCADE or GAMES launch configuration automatically. A missing game reference stays visible as **`[UNAVAILABLE]`**, rather than being silently replaced or deleted; it cannot launch until that source game is restored.
+
+#### 4. Rename, remove, or delete
+
+| Where | Keyboard | Controller | Action |
+| --- | --- | --- | --- |
+| PLAYLISTS manager | `N` | — | Create a playlist |
+| PLAYLISTS manager | `R` | — | Rename the selected playlist |
+| PLAYLISTS manager | `Enter` | A | Open the selected playlist |
+| PLAYLISTS manager | `D` | — | Request deletion of the selected playlist |
+| Inside a playlist | `D` | — | Request removal of the selected game *from this playlist* |
+| In a deletion/removal prompt | **`Y`** | — | Confirm (keyboard only) |
+| In a deletion/removal prompt | `N` / `Esc` | B (cancel) | Cancel |
+| Inside a playlist | `Esc` | B | Back to the PLAYLISTS manager |
+| At the PLAYLISTS manager | `Tab` | View | Switch to the next source |
+
+Deleting a playlist or removing an entry changes **only the saved collection**. It never deletes a ROM, an executable, a desktop shortcut, or a configured GAMES entry. Keyboard confirmation is intentional for destructive collection actions; naming, renaming, and deletion aren't fully controller-only in this release.
+
+#### Storage and upgrades
+
+Playlists and GAMES entries are stored in `~/.config/marchine/config.toml`. Each configured GAMES entry now has a **stable `id`**, so editing, removing, or reordering other games doesn't redirect playlist references to the wrong executable. MAME entries use their ROM identity.
+
+When upgrading from earlier Marchine versions, existing `[[games]]` entries without IDs **load normally and receive stable IDs in memory**. Marchine writes them on the next successful configuration save (for example, when creating a playlist); merely launching the new version does not rewrite the file. **No reimport is necessary.** Saves are atomic. Manual TOML edits remain possible, but saving reserializes the file, so back up custom formatting/comments and your configuration before deliberately downgrading.
 
 ## Fast startup, explicit refresh
 
@@ -132,7 +186,7 @@ marchine --doctor --rescan
 
 ![Marchine arcade categories and local metadata filters](docs/images/marchine-categories.png)
 
-Marchine treats categories as views over one indexed library rather than separate duplicated playlists.
+Marchine treats categories as filters over the indexed MAME library, separate from user-created collections in PLAYLISTS.
 
 CatVer is optional local metadata. When available, Marchine can expose launcher-oriented groups such as:
 
@@ -160,8 +214,9 @@ Marchine keeps setup, shortcuts, project information, and credits inside the TUI
 | `↑` / `↓`, `j` / `k` | D-Pad / LS ↑ / ↓ | Navigate |
 | `[` / `]` | D-Pad / LS ← / →; LT / RT | Prev / Next Letter |
 | `Enter` | A | Launch / Apply |
-| `Esc` | B | Back / Cancel |
-| `Tab` | View | Games / Arcade |
+| `Esc` | B | Back / Cancel (no source change at top level) |
+| `Tab` | View | Cycle Arcade / Games / Playlists |
+| `P` | View + Y | Save selected ARCADE/GAMES game to playlist |
 | `C` | Y | Categories |
 | `I` | X | Info |
 | `O` | Menu | Credits |
@@ -174,11 +229,13 @@ Marchine keeps setup, shortcuts, project information, and credits inside the TUI
 | `S` | — | Setup |
 | `R` | — | Refresh Arcade Library |
 
+For playlist-specific creation, rename, removal, and confirmation controls, see [PLAYLISTS](#playlists). Collections open and play only in PLAYLISTS, never as filters on ARCADE or GAMES.
+
 Standalone View switches sources; standalone Menu opens Credits; standalone RB changes Theme. All three fire on release so `View + Menu` quits and `View + RB` rotates without triggering any of their individual actions. Press either button first, then the other; release both before repeating a chord. **For font zoom, hold View first, then tap X (larger) or A (smaller)**; normal X/A actions are suppressed during the chord. L3/R3 have no launcher action. Setup, Refresh, and Search remain keyboard-only.
 
 **Desktop icons:** The source installer puts Marchine icons in `~/.local/share/icons/hicolor/` and creates a desktop entry when Foot is available. Release archives include the same 128/256/512 px icons; see the prebuilt install commands above.
 
-**Running version:** The Info screen's source bar shows the compact release number derived from the running executable. Development commit details are hidden there; use `marchine --version` for the full build identifier.
+**Running version:** The Info screen's source bar shows the compact release number derived from the running executable. Development commit details are hidden there; use `marchine --version` for the full build identifier. The Info page also links to this README for detailed guidance.
 
 **Font zoom:** Foot already supports `Ctrl++`/`Ctrl+=` (larger), `Ctrl+-` (smaller) and `Ctrl+0` (reset). The View+X/A controller chords send those existing Foot zoom keys to the **focused Marchine desktop window on Hyprland**; they require `hyprctl` and do not change global Foot settings. Outside Hyprland or when run inside another terminal, use that terminal's own font shortcuts. No font size or window size is saved by Marchine. If the terminal falls below 124×48 cells, a resize hint replaces the full UI; View+A is still accepted to shrink the font.
 

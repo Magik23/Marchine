@@ -41,6 +41,7 @@ hide_junk = true
 # Display name is independent from the actual executable/command.
 
 # [[games]]
+# Marchine assigns a stable ID automatically; no ID is needed here.
 # name = "OpenTyrian"
 # command = "opentyrian"
 # args = []
@@ -57,3 +58,8 @@ hide_junk = true
 # command = "/home/me/Games/my-game/start.sh"
 # args = []
 # working_dir = "/home/me/Games/my-game"
+
+# PLAYLISTS are managed in the TUI, not set up by hand: switch to PLAYLISTS,
+# press N to create one, then press P on a selected ARCADE/GAMES title to add it.
+# Saved playlist references use stable `mame:` / `game:` identities; neither
+# saving to a playlist nor deleting one changes underlying files.

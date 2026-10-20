@@ -109,3 +109,20 @@ func TestHeldViewCanRotateMoreThanOnceWithoutThemeOrSource(t *testing.T) {
 		t.Fatal("state was not cleared")
 	}
 }
+
+func TestViewYSavePlaylistChordKeepsCategoriesAlone(t *testing.T) {
+	var s shortcutChordState
+	if out, emit, handled := s.handleFontButton(ActionCategories, true); emit || handled || out != ActionNone {
+		t.Fatalf("standalone Y must remain Categories: %v %v %v", out, emit, handled)
+	}
+	s.handle(ActionView, true)
+	if out, emit, handled := s.handleFontButton(ActionCategories, true); !emit || !handled || out != ActionSaveToPlaylist {
+		t.Fatalf("View + Y did not save: %v %v %v", out, emit, handled)
+	}
+	if out, emit, handled := s.handleFontButton(ActionCategories, false); emit || !handled || out != ActionNone {
+		t.Fatalf("release leaked Y action: %v %v %v", out, emit, handled)
+	}
+	if out, emit := s.handle(ActionView, false); emit || out != ActionNone {
+		t.Fatalf("View release changed source after save: %v %v", out, emit)
+	}
+}

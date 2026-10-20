@@ -7,17 +7,20 @@ cmd/marchine
     flags, config bootstrap, doctor mode, program lifecycle
 
 internal/config
-    TOML config, path expansion, atomic save
+    TOML config, path expansion, stable GAMES IDs, playlists, atomic save
 
 internal/library
-    normalized launchable-game model
+    normalized launchable-game model and three source identifiers
+
+internal/gamepad
+    Linux evdev input, controller actions and modifier chords
 
 internal/mame
     automatic Arcade driver
     ROM discovery, MAME XML parsing, CatVer, cache, launch arguments
 
 internal/ui
-    Bubble Tea model/update/view
+    Bubble Tea model/update/view, ARCADE/GAMES browser and PLAYLISTS manager
     themes, fixed responsive layout, embedded ANSI sculpture
 ```
 
@@ -42,6 +45,22 @@ Import commits selected new entries in one atomic configuration save. Removing o
 A `.desktop` item is invoked through `gio launch`, retaining its original path. Because that command can quickly hand off to another process, Marchine avoids forcibly reclaiming focus as soon as the `gio` process returns. These shortcuts depend on the host's GIO utility and their external launch targets.
 
 Keyboard/controller shortcut hints are rendered centrally by `internal/ui/shortcut_hints.go`, using the active theme's accent, text and muted colors.
+
+## Unified PLAYLISTS and durable game identity
+
+Marchine has three peer sources: **ARCADE** indexes MAME ROMs, **GAMES** lists configured launch targets, and **PLAYLISTS** opens mixed, user-curated collections. ARCADE/GAMES offer only **Save to Playlist** (`P` / controller View + Y); creation, renaming, deletion, browsing and playback of a collection are owned by PLAYLISTS. The save picker accepts existing destinations only and does not change the active browsing source.
+
+`internal/config/config.go` stores playlist definitions as `[[playlists]]` with ordered `[[playlists.items]]` references containing the original display name and a stable game identity. MAME references use `mame:<rom>`; configured GAMES references use `game:<id>` in the runtime library, while each `[[games]]` TOML entry stores only its bare generated ID. The ID is a 32-character lowercase hexadecimal value generated from 16 cryptographically random bytes.
+
+`config.Load` accepts older GAMES entries without an `id` and assigns unique IDs **in memory only**. The next successful `config.Save` persists both IDs and playlists; starting Marchine does not rewrite configuration merely to migrate it. `config.Save` reserializes TOML and writes through a temporary file and rename, so hand-written formatting and comments may change when a save occurs. Keep backups before downgrading to an earlier version that does not preserve the new fields.
+
+`internal/ui/playlists.go` resolves saved references against currently indexed ARCADE and configured GAMES entries by ID. Missing entries remain visible as `[UNAVAILABLE]` rather than disappearing or accidentally launching another game. Playlist deletion/removal modifies only stored references, requires an explicit keyboard `Y`, and never copies, moves or deletes the original ROMs, executables or desktop shortcuts. Playlist naming is keyboard-driven; controller navigation and launch remain supported.
+
+At the PLAYLISTS manager root, `Esc`/controller B does not switch sources; only `Tab`/View cycles source tabs. Inside an opened playlist, `Esc`/B returns to the manager. Source counts, borders and contextual shortcut hints use the shared layout conventions.
+
+## Optional Hyprland cursor behavior
+
+`internal/ui/cursor_timeout.go` temporarily applies a short `cursor:inactive_timeout` at runtime only while the Marchine Foot window is focused and gamepad handling is not suspended. It restores the previous value on blur, game handoff or exit when Marchine still owns the override, without changing `cursor.invisible` or writing Hyprland configuration files. It does nothing outside a supported Hyprland session. Optional `View + RB` display rotation remains delegated to the independently installed `hypr-rotate` executable.
 
 ## Arcade driver
 

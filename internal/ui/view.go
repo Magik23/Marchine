@@ -49,6 +49,19 @@ func (m Model) View() tea.View {
 
 	var parts []string
 	switch m.screen {
+	case screenPlaylists, screenPlaylistName, screenPlaylistSave:
+		footer := m.renderPlaylistFooter(contentWidth)
+		bodyH := max(12, contentHeight-lipgloss.Height(header)-lipgloss.Height(tabs)-lipgloss.Height(footer)-3)
+		var body string
+		switch m.screen {
+		case screenPlaylists:
+			body = m.renderPlaylists(contentWidth, bodyH)
+		case screenPlaylistName:
+			body = m.renderPlaylistName(contentWidth, bodyH)
+		default:
+			body = m.renderPlaylistSave(contentWidth, bodyH)
+		}
+		parts = []string{header, tabs, body, footer}
 	case screenSetup:
 		footer := m.renderSetupFooter(contentWidth)
 		bodyH := max(12, contentHeight-lipgloss.Height(header)-lipgloss.Height(tabs)-lipgloss.Height(footer)-3)
@@ -338,25 +351,22 @@ func (m Model) renderSourceTabs(width int) string {
 		Foreground(t.Text).
 		Padding(0, 1)
 
-	// Each label always remains attached to its real source.
+		// Each label always remains attached to its real source.
 	gameTab := inactive.Render("GAMES")
 	arcadeTab := inactive.Render("ARCADE")
+	playlistTab := inactive.Render("PLAYLISTS")
 
-	if m.screen == screenLibrary {
-		if m.source == library.SourceArcade {
+	if m.screen == screenLibrary || m.screen == screenPlaylists || m.screen == screenPlaylistName || m.screen == screenPlaylistSave {
+		switch m.source {
+		case library.SourceArcade:
 			arcadeTab = active.Render("ARCADE")
-		} else {
+		case library.SourceGames:
 			gameTab = active.Render("GAMES")
+		case library.SourcePlaylists:
+			playlistTab = active.Render("PLAYLISTS")
 		}
 	}
-
-	// Only the VISUAL ORDER is changed:
-	// Arcade first, Games second.
-	line := border.Render("[ ") +
-		arcadeTab +
-		border.Render(" ]   [ ") +
-		gameTab +
-		border.Render(" ]")
+	line := border.Render("[ ") + arcadeTab + border.Render(" ]   [ ") + gameTab + border.Render(" ]   [ ") + playlistTab + border.Render(" ]")
 
 	if m.loading {
 		loadingLabel := "INDEXING ARCADE…"
@@ -370,11 +380,20 @@ func (m Model) renderSourceTabs(width int) string {
 		)
 	}
 
-	// Show the number of games actually in the current library view, not
-	// the total ROM index or the count from the other source. The list panel
-	// uses this same filtered() result, so search, categories and Hide
-	// Non-Arcade are always reflected without maintaining a separate count.
-	if m.screen == screenLibrary && !(m.loading && m.source == library.SourceArcade && len(m.arcade) == 0) {
+	// Source counters share one right-aligned location, with an inset so
+	// the final digit never touches the terminal frame. PLAYLISTS counts
+	// collections; ARCADE/GAMES count visible games (or search matches).
+	const counterRightInset = 2
+	counter := ""
+	switch {
+	case m.screen == screenPlaylists:
+		count := len(m.cfg.Playlists)
+		label := "PLAYLISTS"
+		if count == 1 {
+			label = "PLAYLIST"
+		}
+		counter = groupedCount(count) + " " + label
+	case m.screen == screenLibrary && !(m.loading && m.source == library.SourceArcade && len(m.arcade) == 0):
 		count := len(m.filtered())
 		label := "GAMES"
 		if count == 1 {
@@ -386,11 +405,12 @@ func (m Model) renderSourceTabs(width int) string {
 				label = "MATCH"
 			}
 		}
-		counter := groupedCount(count) + " " + label
-		// Only display the counter if it can fit without truncating tabs
-		// or a current indexing/refreshing message.
-		if gap := width - lipgloss.Width(line) - lipgloss.Width(counter); gap >= 2 {
-			line += strings.Repeat(" ", gap) + muted.Render(counter)
+		counter = groupedCount(count) + " " + label
+	}
+	if counter != "" {
+		// Don't overlap the tabs or an arcade indexing message.
+		if gap := width - lipgloss.Width(line) - lipgloss.Width(counter) - counterRightInset; gap >= 2 {
+			line += strings.Repeat(" ", gap) + muted.Render(counter) + strings.Repeat(" ", counterRightInset)
 		}
 	}
 
@@ -875,14 +895,15 @@ func (m Model) renderList(width, height int) string {
 				marker = "> "
 			}
 
-			row := pad(
-				marker+
-					trim(
-						g.Name,
-						innerW-2,
-					),
-				innerW,
-			)
+			name := g.Name
+			if m.source == library.SourcePlaylists {
+				tag := " [GAMES]"
+				if g.Source == library.SourceArcade {
+					tag = " [ARCADE]"
+				}
+				name = trim(g.Name, max(1, innerW-2-lipgloss.Width(tag))) + tag
+			}
+			row := pad(marker+trim(name, innerW-2), innerW)
 
 			if i == m.cursor {
 				b.WriteString(
@@ -910,10 +931,14 @@ func (m Model) renderList(width, height int) string {
 					),
 			)
 		} else {
+			empty := "NO GAMES IN THIS VIEW"
+			if m.source == library.SourcePlaylists {
+				empty = "PLAYLIST EMPTY · USE P IN ARCADE OR GAMES"
+			}
 			b.WriteString(
 				"\n" +
 					muted.Render(
-						"NO GAMES IN THIS VIEW",
+						empty,
 					),
 			)
 		}
@@ -1041,6 +1066,8 @@ func (m Model) renderDetail(width, height int) string {
 		if strings.Contains(status, "FAILED") ||
 			strings.Contains(status, "ERROR") ||
 			strings.Contains(status, "NOT FOUND") ||
+			strings.Contains(status, "UNAVAILABLE") ||
+			strings.HasPrefix(status, "CREATE A PLAYLIST") ||
 			strings.Contains(status, "NO ROMS") {
 
 			b.WriteByte('\n')
@@ -1053,7 +1080,9 @@ func (m Model) renderDetail(width, height int) string {
 		} else if strings.Contains(status, "INDEX") ||
 			strings.Contains(status, "REFRESH") ||
 			strings.Contains(status, "LAUNCH") ||
-			strings.Contains(status, "RETURNED") {
+			strings.Contains(status, "RETURNED") ||
+			strings.HasPrefix(status, "SAVED TO") ||
+			strings.HasPrefix(status, "REMOVED FROM PLAYLIST") {
 
 			b.WriteByte('\n')
 
@@ -1069,11 +1098,22 @@ func (m Model) renderDetail(width, height int) string {
 }
 
 func (m Model) renderFooter(width int) string {
-	full := []shortcutHint{{"ENTER", "PLAY"}, {"/", "SEARCH"}, {"TAB", "SOURCE"}}
+	if m.source == library.SourcePlaylists && m.playlistRemovePending {
+		return m.renderShortcutHints(shortcutHint{"Y", "REMOVE"}, shortcutHint{"N/ESC", "CANCEL"})
+	}
+
+	// Screen-specific actions first, then source navigation, then global
+	// INFO/QUIT. Keep this order across all three library sources.
+	full := []shortcutHint{{"ENTER", "PLAY"}, {"/", "SEARCH"}}
+	if m.source == library.SourcePlaylists {
+		full = append(full, shortcutHint{"D", "REMOVE"}, shortcutHint{"ESC", "BACK"})
+	} else {
+		full = append(full, shortcutHint{"P", "SAVE TO PLAYLIST"})
+	}
 	if m.source == library.SourceArcade {
 		full = append(full, shortcutHint{"C", "CATEGORIES"})
 	}
-	full = append(full, shortcutHint{"I", "INFO"}, shortcutHint{"Q", "QUIT"})
+	full = append(full, shortcutHint{"TAB", "SOURCE"}, shortcutHint{"I", "INFO"}, shortcutHint{"Q", "QUIT"})
 	return m.renderShortcutHintsFit(width,
 		full,
 		[]shortcutHint{{"ENTER", "PLAY"}, {"/", "SEARCH"}, {"TAB", "SOURCE"}, {"I", "INFO"}, {"Q", "QUIT"}},
@@ -1411,9 +1451,11 @@ func (m Model) renderInfo(width, height int) string {
 			text.Render(body)
 	}
 
-	how := "Marchine is a local terminal launcher. GAMES is a flat list of things you can execute. ARCADE indexes a ROM directory through the active emulator driver, then launches the selected game directly.\n\nEnter hands the terminal to the game. When the game exits, Marchine returns exactly where you left it.\n\nNo artwork scraping. No ratings. No account layer. No ROM-file modification."
+	about := "Marchine is a terminal-native game launcher."
 
-	emu := "The setup field is deliberately called EMULATOR EXECUTABLE. The current automatic Arcade driver is MAME, but the executable + ROM-path model is intentionally reusable for future command-line emulator drivers.\n\nMarchine keeps MAME's local category metadata and filters the installed library without becoming an emulator encyclopedia."
+	sources := "ARCADE: MAME ROMs only.\nGAMES: Executables, scripts, emulator commands.\nPLAYLISTS: Mixed ARCADE and GAMES collections.\n\nDocumentation: github.com/Magik23/Marchine"
+
+	rotation := "Hypr Rotate: separate Hyprland utility.\nhttps://github.com/Magik23/hypr-rotate\n\nSystem key: Super+Alt+R (Suggested)\nView+RB: Hypr Rotate (if installed)."
 
 	keyboardLine := m.renderShortcutReference
 	shortcuts := strings.Join([]string{
@@ -1422,7 +1464,8 @@ func (m Model) renderInfo(width, height int) string {
 		keyboardLine("Esc", "Back / Cancel"),
 		keyboardLine("/", "Search"),
 		keyboardLine("[ / ]", "Prev / Next Letter"),
-		keyboardLine("Tab", "Games / Arcade"),
+		keyboardLine("Tab", "Arcade / Games / Playlists"),
+		keyboardLine("P", "Save to Playlist"),
 		keyboardLine("C", "Categories"),
 		keyboardLine("R", "Refresh Arcade Library"),
 		keyboardLine("S", "Setup"),
@@ -1441,10 +1484,10 @@ func (m Model) renderInfo(width, height int) string {
 		controllerLine("B", "Back / Cancel"),
 		controllerLine("X", "Info"),
 		controllerLine("Y", "Categories"),
-		controllerLine("View", "Games / Arcade"),
+		controllerLine("View", "Arcade / Games / Playlists"),
+		controllerLine("View + Y", "Save to Playlist"),
 		controllerLine("Menu", "Credits"),
 		controllerLine("LB / RB", "Hide Non-Arcade / Theme"),
-		controllerLine("View + RB", "Rotate Display"),
 		controllerLine("View + X / A", "Font Larger / Smaller"),
 		controllerLine("LT / RT", "Prev / Next Letter"),
 		controllerLine("View + Menu", "Quit"),
@@ -1492,16 +1535,9 @@ func (m Model) renderInfo(width, height int) string {
 		left := lipgloss.NewStyle().
 			Width(leftW).
 			Render(
-				section(
-					"HOW IT WORKS",
-					how,
-				) +
-					"\n\n" +
-					section(
-						"EMULATOR MODEL",
-						emu,
-					) +
-					"\n\n" +
+				section("ABOUT MARCHINE", about) + "\n\n" +
+					section("SOURCES", sources) + "\n\n" +
+					section("OPTIONAL DISPLAY ROTATION", rotation) + "\n\n\n" +
 					quickSettingsBlock,
 			)
 
@@ -1511,7 +1547,7 @@ func (m Model) renderInfo(width, height int) string {
 			Width(rightW).
 			Render(
 				accent.Render("KEYBOARD SHORTCUTS") + "\n" +
-					shortcuts + "\n" +
+					shortcuts + "\n\n" +
 					accent.Render("CONTROLLER") + "\n" +
 					controller,
 			)
@@ -1526,16 +1562,11 @@ func (m Model) renderInfo(width, height int) string {
 		return panel.Render(body)
 	}
 
-	body := section(
-		"HOW IT WORKS",
-		how,
-	) + "\n\n" +
-		section(
-			"EMULATOR MODEL",
-			emu,
-		) + "\n\n" +
+	body := section("ABOUT MARCHINE", about) + "\n\n" +
+		section("SOURCES", sources) + "\n\n" +
+		section("OPTIONAL DISPLAY ROTATION", rotation) + "\n\n" +
 		accent.Render("KEYBOARD SHORTCUTS") + "\n\n" + shortcuts + "\n\n" +
-		accent.Render("CONTROLLER") + "\n\n" + controller + "\n\n" +
+		accent.Render("CONTROLLER") + "\n\n" + controller + "\n\n\n" +
 		quickSettingsBlock
 
 	return panel.Render(body)

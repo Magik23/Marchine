@@ -73,6 +73,9 @@ func main() {
 		return
 	}
 
+	stopCursorTimeout := ui.StartMarchineCursorTimeout()
+	defer stopCursorTimeout()
+
 	model := ui.NewModel(cfg, path, *rescan, *demo)
 	model.Version = version
 	p := tea.NewProgram(model)
@@ -81,6 +84,7 @@ func main() {
 	defer stopGamepads()
 
 	if _, err := p.Run(); err != nil {
+		stopCursorTimeout() // fatal calls os.Exit, skipping defers.
 		fatal(err)
 	}
 }

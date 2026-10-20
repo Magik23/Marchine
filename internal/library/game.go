@@ -3,8 +3,9 @@ package library
 type Source string
 
 const (
-	SourceGames  Source = "games"
-	SourceArcade Source = "arcade"
+	SourceGames     Source = "games"
+	SourceArcade    Source = "arcade"
+	SourcePlaylists Source = "playlists"
 )
 
 type Game struct {

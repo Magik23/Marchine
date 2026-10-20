@@ -75,6 +75,21 @@ From **Setup → GAMES** verify:
 7. Setup is reachable with `S` from Info, Credits, and Categories; navigation back does not get stuck in earlier screens. `Tab` does not switch sources from Info or Setup.
 8. All four themes show accent-colored keys, ordinary action labels, and muted separators across Library, Info, Credits, Categories, Setup, GAMES editor/removal, and import/confirmation footers.
 
+## v1.28.0 playlist, identity and UI smoke checks
+
+This is an acceptance checklist, **not a claim that every step has been performed**. Use a disposable test game/collection for destructive actions; protect the real `config.toml` with a backup before testing migration or downgrade behavior.
+
+1. `Tab` / controller View cycles **ARCADE → GAMES → PLAYLISTS**. At the PLAYLISTS manager root, `Esc`/B does nothing; inside an opened playlist it returns to the manager.
+2. Create (`N`) and rename (`R`) a playlist, reject blank/duplicate names, and cancel naming with Esc. Empty collections are allowed.
+3. From both ARCADE and GAMES, save a highlighted game with `P` / View + Y to the **same existing playlist**. Verify the picker marks an already-added entry `[ADDED]`, does not duplicate it and leaves the user in the original source.
+4. Open that playlist and launch an available MAME game and a configured executable from the same mixed list. Search filters only the opened list; restarting retains the chosen order and both references.
+5. `D` removes an entry inside an opened playlist or a whole collection in the manager. **Only physical keyboard `Y` confirms**; N/Esc cancel. Underlying games, executable files, ROMs and GAMES entries are untouched.
+6. Remove a disposable configured GAMES entry referenced by a playlist; the missing item must remain `[UNAVAILABLE]` and must not launch another game. Reordering or editing other GAMES entries cannot retarget its reference.
+7. For a copied **v1.27.0** config lacking game IDs, confirm Marchine loads without reimport. IDs appear on the next normal save, not at mere startup; a subsequent restart resolves the original playlist items.
+8. Across ARCADE, GAMES and PLAYLISTS, source-bar counts stay inside the frame, the playlist manager uses normal panel geometry, and shortcut footers prioritize local actions before `TAB SOURCE`, Info and Quit. Check singular/plural labels and all four themes at **124×48** or larger.
+9. INFO shows `ABOUT MARCHINE`, a **SOURCES** explanation, the documentation URL, and optional Hypr Rotate with `Super+Alt+R` labeled **Suggested** (not preinstalled/default). The running version appears once in the source bar.
+10. On a supported Hyprland/Foot desktop, the temporary cursor timeout must not hide the pointer on the desktop after blur/game launch/exit. Marchine must not set global `cursor.invisible`, persist Hyprland settings, or require Hypr Rotate to run.
+
 Suggested pre-tag checks from the repository root:
 
 ```bash

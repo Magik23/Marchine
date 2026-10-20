@@ -60,7 +60,7 @@ WORKING DIRECTORY  (leave empty)
 
 Quote an argument when a filename contains spaces. Marchine splits the entered arguments into individual values; it **does not run a shell** or interpret shell operators (`&&`, `|`, redirection, etc.). To start a Windows `.exe`, specify an installed runner such as `wine` as EXECUTABLE and the game path as an argument. A script may require executable permission or an interpreter.
 
-Saving changes `~/.config/marchine/config.toml` and updates the visible GAMES list **immediately**, without restarting Marchine or pressing `R`. In the GAMES section, `R` has no action.
+Saving changes `~/.config/marchine/config.toml` and updates the visible GAMES list **immediately**, without restarting Marchine or pressing `R`. In the GAMES section, `R` has no action. GAMES entries have persistent internal IDs: editing an entry preserves its ID so that references from [PLAYLISTS](../README.md#playlists) continue to resolve to the same game. Older configurations acquire IDs automatically on the next normal save; no reimport is necessary.
 
 ### Batch import — IMPORT GAMES
 

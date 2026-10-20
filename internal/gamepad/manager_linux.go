@@ -70,7 +70,7 @@ type holdState struct {
 	next    time.Time
 }
 
-// View modifies Menu (Quit), RB (Rotate) and X/A (Font zoom).
+// View modifies Menu (Quit), RB (Rotate), X/A (Font zoom) and Y (Save to Playlist).
 // View/Menu/RB remain release-triggered for standalone actions.
 // X/A are immediate when pressed alone, but are intercepted if View is
 // already held. Always press View first for the font shortcuts.
@@ -143,6 +143,8 @@ func (s *shortcutChordState) handleFontButton(action Action, pressed bool) (outp
 		return ActionFontIncrease, true, true
 	case ActionConfirm: // Xbox A / BTN_SOUTH
 		return ActionFontDecrease, true, true
+	case ActionCategories: // Y, contextual Save to Playlist chord
+		return ActionSaveToPlaylist, true, true
 	}
 	return ActionNone, false, false
 }
@@ -262,7 +264,7 @@ func (m *Manager) run() {
 
 			// A/X normally fire on press. When View is held, intercept them
 			// before the ordinary action path (including releases).
-			if action == ActionConfirm || action == ActionInfo {
+			if action == ActionConfirm || action == ActionInfo || action == ActionCategories {
 				if state := chords[device.Path]; state != nil {
 					output, shouldEmit, handled := state.handleFontButton(action, input.signal.Pressed)
 					if handled {

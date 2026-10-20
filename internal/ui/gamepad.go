@@ -30,6 +30,11 @@ func (m Model) updateGamepad(action gamepad.Action) (tea.Model, tea.Cmd) {
 		return m, tea.Quit
 	}
 
+	if action == gamepad.ActionSaveToPlaylist {
+		m.openPlaylistSave()
+		return m, nil
+	}
+
 	if action == gamepad.ActionRotateDisplay {
 		m.status = "ROTATING DISPLAY…"
 		return m, rotateDisplayCmd()
@@ -82,6 +87,14 @@ func (m Model) updateGamepad(action gamepad.Action) (tea.Model, tea.Cmd) {
 	}
 
 	// Controller library navigation wraps at the ends.
+	if m.screen == screenPlaylists || m.screen == screenPlaylistSave {
+		switch action {
+		case gamepad.ActionUp:
+			return m.Update(specialKey(tea.KeyUp))
+		case gamepad.ActionDown:
+			return m.Update(specialKey(tea.KeyDown))
+		}
+	}
 	if m.screen == screenLibrary && !m.searchMode {
 		switch action {
 		case gamepad.ActionUp:
@@ -119,7 +132,8 @@ func (m *Model) moveGamepadCursor(delta int) {
 func (m Model) gamepadKey(action gamepad.Action) (tea.KeyPressMsg, bool) {
 	if (m.screen == screenSetup && m.setupEditing) ||
 		(m.screen == screenGameEditor && m.gameEditing) ||
-		(m.screen == screenGameImportPath) {
+		(m.screen == screenGameImportPath) ||
+		(m.screen == screenPlaylistName) {
 		switch action {
 		case gamepad.ActionConfirm:
 			return specialKey(tea.KeyEnter), true
@@ -166,7 +180,7 @@ func (m Model) gamepadKey(action gamepad.Action) (tea.KeyPressMsg, bool) {
 		return textKey("i"), true
 
 	case gamepad.ActionView:
-		if m.screen == screenLibrary {
+		if m.screen == screenLibrary || m.screen == screenPlaylists {
 			return specialKey(tea.KeyTab), true
 		}
 

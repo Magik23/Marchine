@@ -1,6 +1,8 @@
 package config
 
 import (
+	"crypto/rand"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"os"
@@ -11,10 +13,11 @@ import (
 )
 
 type Config struct {
-	Theme         string       `toml:"theme"`
-	StartupSource string       `toml:"startup_source"`
-	Arcade        ArcadeConfig `toml:"arcade"`
-	Games         []GameConfig `toml:"games"`
+	Theme         string           `toml:"theme"`
+	StartupSource string           `toml:"startup_source"`
+	Arcade        ArcadeConfig     `toml:"arcade"`
+	Games         []GameConfig     `toml:"games"`
+	Playlists     []PlaylistConfig `toml:"playlists,omitempty"`
 }
 
 type ArcadeConfig struct {
@@ -27,7 +30,18 @@ type ArcadeConfig struct {
 	HideJunk        bool     `toml:"hide_junk"`
 }
 
+type PlaylistItem struct {
+	ID   string `toml:"id"`
+	Name string `toml:"name"`
+}
+
+type PlaylistConfig struct {
+	Name  string         `toml:"name"`
+	Items []PlaylistItem `toml:"items,omitempty"`
+}
+
 type GameConfig struct {
+	ID         string   `toml:"id,omitempty"`
 	Name       string   `toml:"name"`
 	Command    string   `toml:"command"`
 	Args       []string `toml:"args"`
@@ -84,6 +98,9 @@ func Load(path string) (Config, error) {
 		return cfg, fmt.Errorf("parse config %s: %w", path, err)
 	}
 	cfg.Normalize()
+	if err := cfg.EnsureGameIDs(); err != nil {
+		return cfg, fmt.Errorf("assign game IDs: %w", err)
+	}
 	return cfg, nil
 }
 
@@ -111,6 +128,35 @@ func (c *Config) Normalize() {
 	}
 }
 
+// EnsureGameIDs gives legacy games permanent identities in memory, without
+// modifying the file just because an older Marchine installation starts up.
+// The next successful config Save persists them atomically. Existing unique IDs
+// remain unchanged across edits, imports and removal of other games.
+func (c *Config) EnsureGameIDs() error {
+	seen := make(map[string]bool, len(c.Games))
+	for i := range c.Games {
+		id := strings.TrimSpace(c.Games[i].ID)
+		if id != "" && !seen[id] {
+			c.Games[i].ID = id
+			seen[id] = true
+			continue
+		}
+		for {
+			var bytes [16]byte
+			if _, err := rand.Read(bytes[:]); err != nil {
+				return fmt.Errorf("generate ID for game %d: %w", i, err)
+			}
+			candidate := hex.EncodeToString(bytes[:])
+			if !seen[candidate] {
+				c.Games[i].ID = candidate
+				seen[candidate] = true
+				break
+			}
+		}
+	}
+	return nil
+}
+
 func ExpandPath(s string) string {
 	if s == "" {
 		return s
@@ -135,6 +181,9 @@ func Save(path string, cfg Config) error {
 		}
 	}
 	cfg.Normalize()
+	if err := cfg.EnsureGameIDs(); err != nil {
+		return err
+	}
 	b, err := toml.Marshal(cfg)
 	if err != nil {
 		return fmt.Errorf("encode config: %w", err)

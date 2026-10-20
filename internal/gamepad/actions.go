@@ -35,4 +35,5 @@ const (
 
 	ActionTheme
 	ActionHideNonArcade
+	ActionSaveToPlaylist
 )

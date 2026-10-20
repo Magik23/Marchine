@@ -51,6 +51,9 @@ const (
 	screenGameEditor
 	screenGameImportPath
 	screenGameImportPreview
+	screenPlaylists
+	screenPlaylistName
+	screenPlaylistSave
 )
 
 const (
@@ -124,6 +127,14 @@ type Model struct {
 	importConfirm    bool
 	importSkipped    int
 
+	playlistIndex         int // -1 means playlist manager, >=0 means open playlist
+	playlistCursor        int
+	playlistEditIndex     int
+	playlistName          string
+	playlistSaveGame      library.Game
+	playlistDeletePending bool
+	playlistRemovePending bool
+
 	categoryCursor int
 	infoSetting    int
 }
@@ -141,19 +152,26 @@ func NewModel(cfg config.Config, configPath string, forceRescan, demo bool) Mode
 		setupROM = cfg.Arcade.ROMPaths[0]
 	}
 
+	// Protect legacy config when NewModel is called directly (e.g. in tests).
+	// Normal application startup already assigns these during config.Load.
+	identityErr := cfg.EnsureGameIDs()
 	m := Model{
-		cfg:         cfg,
-		configPath:  configPath,
-		theme:       ThemeByName(cfg.Theme),
-		source:      library.SourceGames,
-		loading:     cfg.Arcade.Enabled && !demo,
-		forceRescan: forceRescan,
-		status:      "READY",
-		demo:        demo,
-		setupMAME:   setupMAME,
-		setupROM:    setupROM,
+		playlistIndex: -1,
+		cfg:           cfg,
+		configPath:    configPath,
+		theme:         ThemeByName(cfg.Theme),
+		source:        library.SourceGames,
+		loading:       cfg.Arcade.Enabled && !demo,
+		forceRescan:   forceRescan,
+		status:        "READY",
+		demo:          demo,
+		setupMAME:     setupMAME,
+		setupROM:      setupROM,
 	}
 	m.reloadGames()
+	if identityErr != nil {
+		m.status = "GAME ID ERROR: " + identityErr.Error()
+	}
 
 	if demo {
 		m.arcade = demoArcade()
@@ -266,6 +284,10 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.importPattern += msg.Content
 			return m, nil
 		}
+		if m.screen == screenPlaylistName {
+			m.playlistName += msg.Content
+			return m, nil
+		}
 		if m.screen == screenLibrary && m.searchMode {
 			m.search += msg.Content
 			m.cursor = 0
@@ -285,6 +307,20 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				(m.screen == screenGameImportPath) ||
 				(m.screen == screenLibrary && m.searchMode) {
 				m.status = "PASTE WITH CTRL+SHIFT+V"
+			}
+			return m, nil
+		}
+
+		// Removal from a playlist is a deliberate two-step action. Never remove
+		// underlying ROMs or launchers, and don't let unrelated keys act while pending.
+		if m.screen == screenLibrary && m.source == library.SourcePlaylists && m.playlistRemovePending {
+			switch msg.String() {
+			case "y", "Y":
+				m.removePlaylistSelected()
+				m.playlistRemovePending = false
+			case "n", "N", "esc":
+				m.playlistRemovePending = false
+				m.status = "READY"
 			}
 			return m, nil
 		}
@@ -321,6 +357,15 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, nil
 		}
 
+		if m.screen == screenPlaylists {
+			return m.updatePlaylists(msg)
+		}
+		if m.screen == screenPlaylistName {
+			return m.updatePlaylistName(msg)
+		}
+		if m.screen == screenPlaylistSave {
+			return m.updatePlaylistSave(msg)
+		}
 		if m.screen == screenCategories {
 			return m.updateCategories(msg)
 		}
@@ -372,6 +417,16 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.openSetup()
 		case "tab":
 			m.toggleSource()
+		case "p", "P":
+			m.openPlaylistSave()
+		case "d", "D":
+			if m.source == library.SourcePlaylists && m.playlistIndex >= 0 && !m.playlistRemovePending {
+				if _, ok := m.selected(); ok {
+					m.playlistRemovePending = true
+					m.status = "CONFIRM PLAYLIST ITEM REMOVAL"
+				}
+			}
+
 		case "c":
 			if m.source == library.SourceArcade {
 				m.openCategories()
@@ -398,7 +453,14 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.searchMode = true
 			m.status = "SEARCH"
 		case "esc":
-			if m.search != "" {
+			if m.source == library.SourcePlaylists && m.playlistIndex >= 0 {
+				m.screen = screenPlaylists
+				m.playlistIndex = -1
+				m.search = ""
+				m.cursor = 0
+				m.letterJump = ""
+				m.status = "PLAYLISTS"
+			} else if m.search != "" {
 				m.search = ""
 				m.cursor = 0
 			}
@@ -422,6 +484,10 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 		case "enter":
 			if g, ok := m.selected(); ok {
+				if g.Command == "" {
+					m.status = "GAME UNAVAILABLE · " + g.Name
+					return m, nil
+				}
 				m.status = "LAUNCHING · " + strings.ToUpper(g.Name)
 
 				SetGamepadSuspended(true)
@@ -906,19 +972,30 @@ func (m Model) updateSearch(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 }
 
 func (m *Model) toggleSource() {
-	if m.source == library.SourceGames {
+	switch m.source {
+	case library.SourceArcade:
+		m.source = library.SourceGames
+		m.screen = screenLibrary
+		m.filter = ""
+	case library.SourceGames:
+		m.openPlaylistManager()
+		return
+	default:
 		m.source = library.SourceArcade
+		m.screen = screenLibrary
 		if m.cfg.Arcade.HideJunk {
 			m.filter = filterArcade
 		} else {
 			m.filter = ""
 		}
-	} else {
-		m.source = library.SourceGames
-		m.filter = ""
 	}
+	m.playlistIndex = -1
+	m.playlistRemovePending = false
+	m.letterJump = ""
+	m.searchMode = false
 	m.search = ""
 	m.cursor = 0
+	m.status = "READY"
 }
 
 func (m *Model) moveCursor(delta int) {
@@ -1064,9 +1141,12 @@ func matchesArcadeFilter(g library.Game, filter string, hideNonArcade bool) bool
 
 func (m Model) filtered() []library.Game {
 	var src []library.Game
-	if m.source == library.SourceArcade {
+	switch m.source {
+	case library.SourceArcade:
 		src = m.arcade
-	} else {
+	case library.SourcePlaylists:
+		src = m.playlistGames()
+	default:
 		src = m.games
 	}
 	q := strings.ToLower(strings.TrimSpace(m.search))

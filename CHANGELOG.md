@@ -2,6 +2,16 @@
 
 ## Unreleased
 
+## 1.28.0
+- Added **PLAYLISTS** as a third source alongside ARCADE and GAMES. Create, rename, open, and delete user-curated playlists; mix MAME ROMs and configured GAMES entries in one playable list with insertion-order browsing and search.
+- Added **Save to Playlist** from ARCADE and GAMES (`P` / controller View + Y). Choose an existing collection, avoid duplicates, and return to the original browsing source; playlists are created and played only in PLAYLISTS.
+- Made playlist removal non-destructive: deleting a collection or removing a reference requires explicit keyboard `Y` and never deletes ROMs, executables, shortcuts, or GAMES configuration. Missing source entries remain visible as `[UNAVAILABLE]` instead of silently retargeting.
+- Introduced persistent **stable IDs** for configured GAMES entries, preserving playlist references through edits, removals, and reordering. Existing configurations are accepted without reimport; IDs are assigned in memory and written atomically on the next normal config save.
+- Polished three-source navigation and layout: top-level `Esc`/B no longer switches sources, playlist manager and dialogs use the standard frame, source counts align within the border with natural singular/plural wording, and context actions lead the shortcut footer.
+- Simplified the Info screen with a clear **SOURCES** explanation and a link to the README; documented PLAYLISTS workflows and clarified optional Hypr Rotate shortcut wording.
+- Scoped the Hyprland cursor inactivity adjustment to the focused Marchine window, restoring the previous runtime setting when focus changes or Marchine exits; no global cursor-invisible override or persistent compositor configuration changes.
+- Extended regression tests for playlist behavior, persistent IDs, controller chords, navigation, layout, Info wording, and cursor timeout handling.
+
 ## 1.27.0
 - Added **IMPORT GAMES** to the GAMES Setup source: enter a path, an immediate directory, or a simple glob; preview eligible executables, scripts, AppImages, and Linux `.desktop` launchers without a file browser.
 - Added a scrollable, Arcade-style import selection list with persistent selections, select-all/none, duplicate detection, and a single atomic `config.toml` save; existing files are never moved, copied, or deleted.

@@ -5,7 +5,11 @@ The filename is retained for project history; this document describes the curren
 ## In scope
 
 - Terminal-native TUI.
-- ARCADE + GAMES sources, with ARCADE first in the interface.
+- Three top-level sources: **ARCADE** (MAME ROMs), **GAMES** (configured local launch targets), and **PLAYLISTS** (mixed collections).
+- User-managed PLAYLISTS: create, rename, open, search, launch and delete collections containing both ARCADE and GAMES entries in one playable view; keep insertion order.
+- `P` / controller View + Y saves a highlighted ARCADE/GAMES title to an existing collection, without changing the browsing source; playlists are created/opened only in PLAYLISTS.
+- Playlist names require keyboard text input and destructive playlist operations require keyboard `Y`; controller navigation/launch/save remain available.
+- Stable GAMES identity, lazy migration of legacy entries, atomic config persistence and unavailable-reference placeholders; removing collection references never removes original games.
 - Flat generic GAMES entries managed through in-app Add/Import/Edit/Remove Setup actions or manually in TOML.
 - Path-driven, multi-select import of local executables, scripts, AppImages, and standard Linux `.desktop` shortcuts; no file browser or account integration.
 - Keyboard `Y` required to confirm bulk import or removal, with no changes to the referenced files on disk.

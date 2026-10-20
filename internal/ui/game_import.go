@@ -181,6 +181,11 @@ func (m *Model) commitGameImport() {
 		m.status = "IMPORT: NO NEW GAMES TO SAVE"
 		return
 	}
+	if err := next.EnsureGameIDs(); err != nil {
+		m.importConfirm = false
+		m.status = "IMPORT ID FAILED: " + err.Error()
+		return
+	}
 	if err := config.Save(m.configPath, next); err != nil {
 		m.importConfirm = false
 		m.status = "IMPORT SAVE FAILED: " + err.Error()

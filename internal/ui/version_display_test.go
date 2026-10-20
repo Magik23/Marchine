@@ -51,3 +51,26 @@ func TestInfoSourceBarShowsVersion(t *testing.T) {
 		t.Fatal("Version should only appear on Info")
 	}
 }
+
+// The running version is in Info's source bar, not duplicated in its content.
+func TestInfoDoesNotDuplicateVersionOrDescribeUnsupportedEmulators(t *testing.T) {
+	m := Model{Version: "1.27.0-2-gabcdef-dirty", theme: ThemeByName("")}
+	info := m.renderInfo(124, 48)
+	for _, unwanted := range []string{"Version:", "marchine --version", "EMULATOR MODEL", "(Default)"} {
+		if strings.Contains(info, unwanted) {
+			t.Fatalf("Info contains obsolete text %q", unwanted)
+		}
+	}
+	for _, required := range []string{
+		"ABOUT MARCHINE", "SOURCES", "ARCADE: MAME ROMs only.",
+		"GAMES: Executables, scripts, emulator commands.",
+		"PLAYLISTS: Mixed ARCADE and GAMES collections.",
+		"Documentation: github.com/Magik23/Marchine",
+		"System key: Super+Alt+R (Suggested)",
+		"View+RB: Hypr Rotate (if installed).",
+	} {
+		if !strings.Contains(info, required) {
+			t.Fatalf("Info missing %q", required)
+		}
+	}
+}
