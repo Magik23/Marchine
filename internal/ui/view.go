@@ -1,3 +1,6 @@
+// Copyright (C) 2026 Pierre Dionne
+// SPDX-License-Identifier: GPL-3.0-only
+
 package ui
 
 import (
@@ -1601,7 +1604,7 @@ func (m Model) renderCredits(width, height int) string {
 	muted := lipgloss.NewStyle().
 		Foreground(t.Muted)
 
-	creditsText := "MARCHINE — Game Machinery.\n\nA HyprStage project conceived, directed and designed by\nPierre Dionne / Albenoir Studio.\n\nBuilt in Go with Bubble Tea and Lip Gloss.\n\nMarchine is intentionally small and local-first: no artwork\nscraping, no account layer, no ratings wall, and no\nencyclopedia sprawl. It indexes what you own and launches it\ncleanly.\n\nReleased under GNU GPLv3."
+	creditsText := "MARCHINE — Game Machinery.\n\nCreated and developed by Pierre Dionne.\nAn Albenoir Studio project.\n\nBuilt in Go with Bubble Tea and Lip Gloss.\n\nMarchine is intentionally small and local-first: no artwork\nscraping, no account layer, no ratings wall, and no\nencyclopedia sprawl. It indexes what you own and launches it\ncleanly.\n\nReleased under GNU GPLv3."
 
 	artRaw := creditsBBSArt()
 	artW := lipgloss.Width(artRaw)

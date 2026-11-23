@@ -423,10 +423,16 @@ EMULATOR + ROM PATH → INDEX → EXECUTE
 
 **Marchine — Game Machinery.**
 
-Conceived, directed, and designed by **Pierre Dionne / Albenoir Studio**.
+Created and developed by **Pierre Dionne**.
+
+An **Albenoir Studio** project.
 
 Built in Go with Bubble Tea and Lip Gloss.
 
 ## License
 
-Marchine is released under the [GNU General Public License v3.0](LICENSE) (GPL-3.0-only).
+Copyright © 2026 Pierre Dionne.
+
+Marchine is licensed under the [GNU General Public License version 3](LICENSE) (GPL-3.0-only).
+
+Releases through v1.28.1 retain their originally published license terms.
