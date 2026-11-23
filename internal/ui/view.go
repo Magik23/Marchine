@@ -895,15 +895,7 @@ func (m Model) renderList(width, height int) string {
 				marker = "> "
 			}
 
-			name := g.Name
-			if m.source == library.SourcePlaylists {
-				tag := " [GAMES]"
-				if g.Source == library.SourceArcade {
-					tag = " [ARCADE]"
-				}
-				name = trim(g.Name, max(1, innerW-2-lipgloss.Width(tag))) + tag
-			}
-			row := pad(marker+trim(name, innerW-2), innerW)
+			row := pad(marker+trim(g.Name, innerW-2), innerW)
 
 			if i == m.cursor {
 				b.WriteString(
@@ -1026,6 +1018,16 @@ func (m Model) renderDetail(width, height int) string {
 		)
 
 		b.WriteString("\n\n")
+
+		// In a mixed playlist, the selected game's source is useful
+		// context. Keep it out of the game list so titles have room.
+		if m.source == library.SourcePlaylists {
+			switch g.Source {
+			case library.SourceArcade, library.SourceGames:
+				b.WriteString(muted.Render("SOURCE: " + strings.ToUpper(string(g.Source))))
+				b.WriteByte('\n')
+			}
+		}
 
 		if g.Source == library.SourceArcade {
 			meta := strings.Trim(
