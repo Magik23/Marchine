@@ -434,4 +434,3 @@ Copyright © 2026 Pierre Dionne (Albenoir Studio).
 
 Marchine is licensed under the [GNU General Public License version 3](LICENSE) (GPL-3.0-only).
 
-Releases through v1.28.1 retain their originally published license terms.
