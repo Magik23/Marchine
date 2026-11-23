@@ -429,4 +429,4 @@ Built in Go with Bubble Tea and Lip Gloss.
 
 ## License
 
-Marchine is released under the [MIT License](LICENSE).
+Marchine is released under the [GNU General Public License v3.0](LICENSE) (GPL-3.0-only).

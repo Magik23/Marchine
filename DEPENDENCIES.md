@@ -39,4 +39,4 @@ The fightstick is an embedded ANSI text asset. Marchine does not require a graph
 
 ## License material
 
-The upstream release workflow and AUR package include Marchine's MIT license and the license/notice files found in the vendored dependency tree.
+The upstream release workflow and AUR package include Marchine's GPLv3 license and the license/notice files found in the vendored dependency tree.
