@@ -427,7 +427,6 @@ Created and developed by **Pierre Dionne**.
 
 An [**Albenoir Studio**](https://albenoir.com) project.
 
-Built in Go with Bubble Tea and Lip Gloss.
 
 ## License
 
