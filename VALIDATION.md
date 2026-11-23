@@ -89,6 +89,7 @@ This is an acceptance checklist, **not a claim that every step has been performe
 8. Across ARCADE, GAMES and PLAYLISTS, source-bar counts stay inside the frame, the playlist manager uses normal panel geometry, and shortcut footers prioritize local actions before `TAB SOURCE`, Info and Quit. Check singular/plural labels and all four themes at **124×48** or larger.
 9. INFO shows `ABOUT MARCHINE`, a **SOURCES** explanation, the documentation URL, and optional Hypr Rotate with `Super+Alt+R` labeled **Suggested** (not preinstalled/default). The running version appears once in the source bar.
 10. On a supported Hyprland/Foot desktop, the temporary cursor timeout must not hide the pointer on the desktop after blur/game launch/exit. Marchine must not set global `cursor.invisible`, persist Hyprland settings, or require Hypr Rotate to run.
+11. In a mixed PLAYLISTS collection, confirm game rows no longer append `[ARCADE]` / `[GAMES]`; selecting MAME and native entries shows the correct `SOURCE: ARCADE` / `SOURCE: GAMES` in the detail panel. Confirm metadata and launches still work, and `[UNAVAILABLE]` remains visible for missing references.
 
 Suggested pre-tag checks from the repository root:
 

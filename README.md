@@ -22,10 +22,10 @@ The current GitHub release workflow publishes a **Linux amd64** archive and SHA-
 2. Download:
    - `marchine-X.Y.Z-linux-amd64.tar.gz`
    - `marchine-X.Y.Z-linux-amd64.tar.gz.sha256`
-3. Verify and install the executable and its icons (replace `1.28.0` with the version you downloaded):
+3. Verify and install the executable and its icons (replace `1.28.1` with the version you downloaded):
 
 ```bash
-VERSION=1.28.0
+VERSION=1.28.1
 ARCHIVE="marchine-${VERSION}-linux-amd64"
 
 sha256sum -c "${ARCHIVE}.tar.gz.sha256"
@@ -128,6 +128,8 @@ If no playlists exist, Marchine tells you to create one in PLAYLISTS first. **Sa
 
 Marchine uses the original ARCADE or GAMES launch configuration automatically. A missing game reference stays visible as **`[UNAVAILABLE]`**, rather than being silently replaced or deleted; it cannot launch until that source game is restored.
 
+In an opened playlist, the game list displays **clean titles without repeated `[ARCADE]` or `[GAMES]` suffixes**. The selected game’s detail panel identifies its origin as **`SOURCE: ARCADE`** or **`SOURCE: GAMES`**. This is a presentation change only; playlists still preserve the original game reference and launch behavior.
+
 #### 4. Rename, remove, or delete
 
 | Where | Keyboard | Controller | Action |
@@ -222,13 +224,14 @@ Marchine keeps setup, shortcuts, project information, and credits inside the TUI
 | `Esc` | B | Back / Cancel (no source change at top level) |
 | `Tab` | View | Cycle Arcade / Games / Playlists |
 | `P` | View + Y | Save selected ARCADE/GAMES game to playlist |
-| `C` | Y | Categories |
+| `C` | Y | Categories (ARCADE only) |
 | `I` | X | Info |
 | `O` | Menu | Credits |
 | `H` | LB | Hide Non-Arcade |
 | `T` | RB | Theme |
 | — | View + RB | Rotate Display |
-| `Ctrl++` / `Ctrl+-` / `Ctrl+0` | View + X / View + A | Increase / decrease / reset Foot font (controller: zoom only) |
+| `Ctrl++` / `Ctrl+-` | View + X / View + A | Increase / decrease Foot font size |
+| `Ctrl+0` | — | Reset Foot font size (keyboard only) |
 | `Q` | View + Menu | Quit |
 | `/` | — | Search |
 | `S` | — | Setup |
@@ -248,7 +251,7 @@ Standalone View switches sources; standalone Menu opens Credits; standalone RB c
 
 **For developers modifying bindings:** `View + RB` is a separate, optional external-command chord — not an ordinary Marchine button assignment. Its handling lives in `internal/gamepad/manager_linux.go` (`shortcutChordState` and `chordButton`), while `internal/ui/gamepad.go` dispatches `ActionRotateDisplay` and `internal/ui/model.go` executes `hypr-rotate`. To remap or remove this integration, update those paths together with the Info legend and associated tests. Simply uninstalling `hypr-rotate` prevents rotation but does **not** disable chord interception: `View + RB` will still suppress the usual View and RB actions.
 
-Marchine also supports `PgUp`, `PgDown`, `Home`, and `End` for longer lists.
+Marchine also supports `PgUp`, `PgDown`, `Home`, and `End` for longer lists (where applicable). These navigation keys are keyboard-only.
 
 On Linux, compatible evdev controllers are discovered by capabilities rather than fixed `/dev/input/event*` paths. Hotplug and multiple connected controllers are supported, and held D-Pad / left-stick navigation accelerates automatically. Search remains keyboard-driven.
 

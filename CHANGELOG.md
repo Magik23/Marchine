@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+## 1.28.1
+- Cleaned mixed PLAYLISTS game rows by removing repeated `[ARCADE]` / `[GAMES]` suffixes, giving long titles more room while keeping the source visible in the selected game detail panel.
+- Added regression tests for playlist source display; playlist identity, storage, and launching are unchanged.
+- Reconciled README controls and release documentation with the current implementation, including Arcade-only Categories, keyboard-only font reset, and the v1.28.1 install example.
+
 ## 1.28.0
 - Added **PLAYLISTS** as a third source alongside ARCADE and GAMES. Create, rename, open, and delete user-curated playlists; mix MAME ROMs and configured GAMES entries in one playable list with insertion-order browsing and search.
 - Added **Save to Playlist** from ARCADE and GAMES (`P` / controller View + Y). Choose an existing collection, avoid duplicates, and return to the original browsing source; playlists are created and played only in PLAYLISTS.
