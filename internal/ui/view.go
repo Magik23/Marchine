@@ -1604,7 +1604,7 @@ func (m Model) renderCredits(width, height int) string {
 	muted := lipgloss.NewStyle().
 		Foreground(t.Muted)
 
-	creditsText := "MARCHINE — Game Machinery.\n\nCreated and developed by Pierre Dionne.\nAn Albenoir Studio project.\n\nCopyright © 2026 Pierre Dionne (Albenoir Studio).\n\nBuilt in Go with Bubble Tea and Lip Gloss.\n\nMarchine is intentionally small and local-first: no artwork\nscraping, no account layer, no ratings wall, and no\nencyclopedia sprawl. It indexes what you own and launches it\ncleanly.\n\nReleased under GNU GPLv3."
+	creditsText := "MARCHINE — Game Machinery.\n\nCreated and developed by Pierre Dionne.\nAn Albenoir Studio project.\n\nCopyright © 2026 Pierre Dionne (Albenoir Studio).\n\nReleased under GNU GPLv3."
 
 	studioLink := lipgloss.NewStyle().
 		Foreground(t.Accent2).
