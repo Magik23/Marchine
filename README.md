@@ -425,13 +425,13 @@ EMULATOR + ROM PATH → INDEX → EXECUTE
 
 Created and developed by **Pierre Dionne**.
 
-An **Albenoir Studio** project.
+An [**Albenoir Studio**](https://albenoir.com) project.
 
 Built in Go with Bubble Tea and Lip Gloss.
 
 ## License
 
-Copyright © 2026 Pierre Dionne.
+Copyright © 2026 Pierre Dionne (Albenoir Studio).
 
 Marchine is licensed under the [GNU General Public License version 3](LICENSE) (GPL-3.0-only).
 
